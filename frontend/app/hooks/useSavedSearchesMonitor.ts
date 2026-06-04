@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND } from "../lib/config";
 
 // ── Types shared with the Summary dashboard ───────────────────────────────────
 export interface MonitoredSearch {

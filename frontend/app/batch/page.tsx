@@ -55,7 +55,7 @@ function extractUrls(text: string): string[] {
   return [...new Set(matches.map((u) => u.replace(/[.,;:!?)]$/, "")))];
 }
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND } from "../lib/config";
 let nextId = 1;
 
 function applyPresetToFormats(formats: FormatOption[], preset: GlobalPreset): { format_id: string; resolution: string; is_audio: boolean; is_4k: boolean } | null {

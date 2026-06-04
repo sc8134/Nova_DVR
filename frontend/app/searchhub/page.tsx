@@ -56,7 +56,7 @@ const CLUSTERS = [
   { label: "🎭 Vlog",     keywords: ["vlog","day in","daily","my life","routine"] },
 ];
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND } from "../lib/config";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

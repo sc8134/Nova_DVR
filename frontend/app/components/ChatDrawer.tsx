@@ -23,7 +23,7 @@ interface Message {
   }>;
 }
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND } from "../lib/config";
 
 export default function ChatDrawer() {
   const [isOpen, setIsOpen] = useState(false);

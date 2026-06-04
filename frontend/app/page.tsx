@@ -71,7 +71,7 @@ function formatDate(d: string | null) {
   return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 }
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND } from "./lib/config";
 
 function DownloaderInner() {
   const searchParams = useSearchParams();

@@ -8,7 +8,7 @@ import {
   type MonitoredSearch,
 } from "../hooks/useSavedSearchesMonitor";
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND } from "../lib/config";
 
 interface DownloadJob {
   url: string;
