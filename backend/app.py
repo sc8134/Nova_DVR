@@ -312,6 +312,7 @@ def inspect():
         "no_warnings": True,
         "skip_download": True,
         "socket_timeout": 20,
+        **_cookie_opts(),
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -354,7 +355,7 @@ def list_formats():
         logger.info(f"Cache hit: list-formats {url}")
         return jsonify(cached)
 
-    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 20}
+    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 20, **_cookie_opts()}
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -477,6 +478,7 @@ def run_download_thread(ydl_opts, url, q, job_id=None):
         opts = dict(ydl_opts)
         opts["progress_hooks"] = opts.get("progress_hooks", []) + [progress_hook]
         opts["socket_timeout"] = 30
+        opts.update(_cookie_opts())
 
         last_error = None
         MAX_RETRIES = 2
@@ -620,6 +622,7 @@ def download():
                 "preferredcodec": "mp3",
                 "preferredquality": "192",
             }],
+            **_cookie_opts(),
         }
     else:
         if is_4k:
@@ -631,6 +634,7 @@ def download():
             "outtmpl": os.path.join(save_dir, "%(title)s.%(ext)s"),
             "merge_output_format": "mp4",
             "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
+            **_cookie_opts(),
         }
 
     return Response(make_download_stream(ydl_opts, url, is_temp, job_id=job_id), mimetype='text/event-stream')
@@ -702,6 +706,7 @@ def batch_download():
                 "outtmpl": os.path.join(download_dir, "%(title)s.%(ext)s"),
                 "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
                 "quiet": True,
+                **_cookie_opts(),
             }
         else:
             fmt = "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]" if is_4k else f"{format_id}+bestaudio/best"
@@ -711,6 +716,7 @@ def batch_download():
                 "merge_output_format": "mp4",
                 "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
                 "quiet": True,
+                **_cookie_opts(),
             }
 
         try:
@@ -761,6 +767,7 @@ def _run_single_parallel_job(job: dict, download_dir: str) -> dict:
             "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
             "quiet": True,
             "socket_timeout": 30,
+            **_cookie_opts(),
         }
     else:
         fmt = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best" if is_4k else f"{format_id}+bestaudio[ext=m4a]/bestaudio/{format_id}"
@@ -771,6 +778,7 @@ def _run_single_parallel_job(job: dict, download_dir: str) -> dict:
             "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
             "quiet": True,
             "socket_timeout": 30,
+            **_cookie_opts(),
         }
 
     PERMANENT_ERRORS = [
@@ -1005,6 +1013,7 @@ def search():
         "no_warnings": True,
         "skip_download": True,
         "extract_flat": "in_playlist",
+        **_cookie_opts(),
     }
 
     try:
@@ -1278,7 +1287,7 @@ def list_subtitles():
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
-    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True, **_cookie_opts()}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -1379,6 +1388,7 @@ def download_with_options():
         "outtmpl": os.path.join(save_dir, "%(title)s.%(ext)s"),
         "merge_output_format": "mp4" if not is_audio else None,
         "postprocessors": postprocessors,
+        **_cookie_opts(),
     }
     if not is_audio:
         ydl_opts["merge_output_format"] = "mp4"
@@ -1411,6 +1421,7 @@ def trending():
         ydl_opts = {
             "quiet": True, "no_warnings": True,
             "skip_download": True, "extract_flat": "in_playlist",
+            **_cookie_opts(),
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -1444,6 +1455,7 @@ def trending():
         ydl_opts = {
             "quiet": True, "no_warnings": True,
             "skip_download": True, "extract_flat": "in_playlist",
+            **_cookie_opts(),
         }
         results = []
         try:
@@ -1492,6 +1504,7 @@ def playlist_explode():
         "no_warnings": True,
         "extract_flat": "in_playlist",
         "skip_download": True,
+        **_cookie_opts(),
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
