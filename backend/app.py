@@ -16,7 +16,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
+
+# ─────────────────────────────────────────────
+# CORS — allow localhost in dev, Vercel domain in prod
+# Set ALLOWED_ORIGIN env var on Render to your Vercel URL
+# e.g. https://nova-dvr.vercel.app
+# ─────────────────────────────────────────────
+_allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+_extra = os.environ.get("ALLOWED_ORIGIN", "")
+if _extra:
+    _allowed_origins.append(_extra.rstrip("/"))
+
+CORS(app, origins=_allowed_origins, supports_credentials=True)
 
 # ─────────────────────────────────────────────
 # Logging
@@ -27,6 +41,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("nova_dvr")
+
 
 # ─────────────────────────────────────────────
 # Directories
@@ -1810,4 +1825,6 @@ def chat():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV", "development") != "production"
+    app.run(debug=debug, host="0.0.0.0", port=port)

@@ -21,6 +21,9 @@ backend/*.mp3
 backend/*.mkv
 backend/*.webm
 
+# Runtime generated files
+backend/jobs.db
+
 # OS
 .DS_Store
 Thumbs.db
