@@ -18,32 +18,9 @@ from datetime import datetime
 app = Flask(__name__)
 
 # ─────────────────────────────────────────────
-# CORS — allow localhost in dev, Vercel domain in prod
-# Set ALLOWED_ORIGIN env var on Render to your Vercel URL
-# e.g. https://nova-dvr.vercel.app
+# CORS — open to all origins (public app, no auth)
 # ─────────────────────────────────────────────
-_allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://nova-dvr.vercel.app",      # production frontend
-    "https://novadvr.sagarrc.com.np",   # custom domain
-]
-_extra = os.environ.get("ALLOWED_ORIGIN", "").strip().rstrip("/")
-if _extra and _extra not in _allowed_origins:
-    _allowed_origins.append(_extra)
-
-_vercel_preview_re = re.compile(r'https://nova-dvr.*\.vercel\.app$')
-
-def _cors_origin_check(origin):
-    if not origin:
-        return False
-    if origin in _allowed_origins:
-        return True
-    if _vercel_preview_re.match(origin):
-        return True
-    return False
-
-CORS(app, origins=_cors_origin_check, supports_credentials=True)
+CORS(app)
 
 # ─────────────────────────────────────────────
 # Logging
