@@ -32,15 +32,14 @@ _extra = os.environ.get("ALLOWED_ORIGIN", "").strip().rstrip("/")
 if _extra and _extra not in _allowed_origins:
     _allowed_origins.append(_extra)
 
-# Also allow any *.vercel.app preview deployments
-import re as _re
+_vercel_preview_re = re.compile(r'https://nova-dvr.*\.vercel\.app$')
+
 def _cors_origin_check(origin):
     if not origin:
         return False
     if origin in _allowed_origins:
         return True
-    # Allow any Vercel preview deployment for this project
-    if _re.match(r'https://nova-dvr.*\.vercel\.app$', origin):
+    if _vercel_preview_re.match(origin):
         return True
     return False
 
