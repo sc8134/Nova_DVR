@@ -91,6 +91,7 @@ function DownloaderInner() {
   const [aiSummary, setAiSummary]       = useState("");
   const [aiRec, setAiRec]               = useState<{ format: Format; reason: string } | null>(null);
   const [aiError, setAiError]           = useState<{ explanation: string; suggestion: string } | null>(null);
+  const [retryCount, setRetryCount]     = useState(0);
   // Trim
   const [trimStart, setTrimStart]       = useState("");
   const [trimEnd, setTrimEnd]           = useState("");
@@ -121,6 +122,7 @@ function DownloaderInner() {
   // ── Step 1: Inspect URL ──────────────────────────────────────
   const runInspect = async (targetUrl: string) => {
     setError("");
+    setRetryCount(0);
     setMeta(null);
     setFormats([]);
     setSelectedFormat(null);
@@ -331,6 +333,7 @@ function DownloaderInner() {
                 };
                 setSessionJobs((p) => [job, ...p]);
                 fireNotification("Nova DVR — Download complete", `${meta?.title || url} saved to ${data.save_dir || downloadDir}`);
+                setRetryCount(0);
                 const existing = JSON.parse(localStorage.getItem("novaDvrJobs") || "[]");
                 existing.unshift(job);
                 localStorage.setItem("novaDvrJobs", JSON.stringify(existing));
@@ -348,7 +351,12 @@ function DownloaderInner() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Download failed.";
       setError(msg);
-      fireNotification("Nova DVR — Download failed", meta?.title || url);
+      setRetryCount((c) => c + 1);
+      // Rich failure notification with retry hint
+      const notifBody = retryCount > 0
+        ? `${meta?.title || "Download"} failed again (attempt ${retryCount + 1}). Check the error for details.`
+        : `${meta?.title || "Download"} failed. Tap to retry.`;
+      fireNotification("Nova DVR — Download failed ⚠️", notifBody);
       try {
         const errRes = await fetch(`${BACKEND}/ai/explain-error`, {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -366,7 +374,7 @@ function DownloaderInner() {
   const audioFormats = formats.filter((f) => f.type === "audio-only");
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
+    <div className="p-8 max-w-4xl mx-auto space-y-6" suppressHydrationWarning>
 
       {/* ── Header ── */}
       <div>
@@ -425,7 +433,20 @@ function DownloaderInner() {
           <div className="space-y-2">
             <div className="flex items-start gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm">
               <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" /></svg>
-              {error}
+              <span className="flex-1">{error}</span>
+              {/* Retry button — only shown when a format is selected */}
+              {selectedFormat && !downloading && (
+                <button
+                  onClick={() => { setError(""); setAiError(null); handleDownload(); }}
+                  className="shrink-0 ml-2 text-xs font-semibold bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-800/60 text-red-700 dark:text-red-300 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-700 transition flex items-center gap-1"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                  Retry
+                  {retryCount > 0 && <span className="font-bold">({retryCount})</span>}
+                </button>
+              )}
             </div>
             {/* ── AI Error Explanation ── */}
             {aiError && (

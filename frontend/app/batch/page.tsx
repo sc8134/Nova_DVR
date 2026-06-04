@@ -216,87 +216,107 @@ export default function BatchPage() {
     setDoneCount(0);
     setTotalCount(readyItems.length);
 
-    for (const item of readyItems) {
-      update(item.id, { status: "downloading", percent: null, speed: "", eta: "" });
-      try {
-        const res = await fetch(`${BACKEND}/download`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: item.url, format_id: item.format_id, is_audio: item.is_audio, is_4k: item.is_4k, download_dir: downloadDir }),
-        });
+    // Mark all as queued
+    readyItems.forEach((item) => update(item.id, { status: "downloading", percent: null, speed: "", eta: "" }));
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Download failed to start");
-        }
+    try {
+      const res = await fetch(`${BACKEND}/parallel-batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobs: readyItems.map((item) => ({
+            id: item.id,
+            url: item.url,
+            format_id: item.format_id,
+            is_audio: item.is_audio,
+            is_4k: item.is_4k,
+            title: item.title,
+          })),
+          download_dir: downloadDir,
+        }),
+      });
 
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("Response body not readable");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Batch failed to start");
+      }
 
-        const decoder = new TextDecoder();
-        let buffer = "";
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("Response body not readable");
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n\n");
-          buffer = lines.pop() || "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-          for (const line of lines) {
-            const cleanLine = line.trim();
-            if (cleanLine.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(cleanLine.substring(6));
-                if (data.status === "downloading") {
-                  const pct = parseFloat(data.percent);
-                  update(item.id, {
-                    percent: isNaN(pct) ? null : pct,
-                    speed: data.speed || "",
-                    eta: data.eta || ""
-                  });
-                } else if (data.status === "processing") {
-                  update(item.id, {
-                    percent: 100,
-                    speed: "",
-                    eta: "post-processing..."
-                  });
-                } else if (data.status === "done") {
-                  update(item.id, { status: "done", percent: 100, speed: "", eta: "" });
-                  setDoneCount((c) => c + 1);
-                  fireNotification("Nova DVR — Done", item.title);
-                  if (data.filepath) {
-                    const a = document.createElement("a");
-                    a.href = `${BACKEND}/serve-file?path=${encodeURIComponent(data.filepath)}&temp=${data.is_temp ? "1" : "0"}`;
-                    a.download = data.filename || item.title;
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                  }
-                  const existing = JSON.parse(localStorage.getItem("novaDvrJobs") || "[]");
-                  existing.unshift({ url: item.url, title: item.title, format: item.format_id, resolution: item.resolution, status: "Done", timestamp: new Date().toLocaleString() });
-                  localStorage.setItem("novaDvrJobs", JSON.stringify(existing));
-                } else if (data.status === "error") {
-                  throw new Error(data.error || "Download failed");
-                }
-              } catch (jsonErr: unknown) {
-                if (jsonErr instanceof Error && jsonErr.message !== "Unexpected end of JSON input") {
-                  throw jsonErr;
-                }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const cleanLine = line.trim();
+          if (!cleanLine.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(cleanLine.substring(6));
+
+            if (data.type === "done") {
+              const clientId = data.client_id;
+              update(clientId, { status: "done", percent: 100, speed: "", eta: "" });
+              setDoneCount((c) => c + 1);
+              const item = readyItems.find((it) => it.id === clientId);
+              fireNotification("Nova DVR — Done", item?.title || "Download complete");
+              if (data.filepath) {
+                const a = document.createElement("a");
+                a.href = `${BACKEND}/serve-file?path=${encodeURIComponent(data.filepath)}&temp=${data.is_temp ? "1" : "0"}`;
+                a.download = data.filename || item?.title || "download";
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
               }
+              const existing = JSON.parse(localStorage.getItem("novaDvrJobs") || "[]");
+              existing.unshift({
+                url: item?.url || data.url,
+                title: item?.title || data.url,
+                format: item?.format_id || "",
+                resolution: item?.resolution || "",
+                status: "Done",
+                timestamp: new Date().toLocaleString(),
+              });
+              localStorage.setItem("novaDvrJobs", JSON.stringify(existing));
+            } else if (data.type === "error") {
+              const clientId = data.client_id;
+              update(clientId, { status: "error", error: data.error || "Failed" });
+              setDoneCount((c) => c + 1);
+            } else if (data.type === "complete") {
+              fireNotification(
+                "Nova DVR — Batch complete",
+                `${data.done} done · ${data.errors} error${data.errors !== 1 ? "s" : ""}`
+              );
             }
+          } catch {
+            // malformed SSE line — skip
           }
         }
-      } catch (e: unknown) {
-        update(item.id, { status: "error", error: e instanceof Error ? e.message : "Failed" });
       }
+    } catch (e: unknown) {
+      // Mark any still-downloading items as error
+      setItems((prev) =>
+        prev.map((it) =>
+          it.status === "downloading"
+            ? { ...it, status: "error", error: e instanceof Error ? e.message : "Batch failed" }
+            : it
+        )
+      );
     }
+
     setRunning(false);
-    fireNotification("Nova DVR — Batch complete", "Batch download finished");
   };
 
   const readyCount  = items.filter((it) => it.status === "ready" && it.format_id && it.checked).length;
-  const activeItem  = items.find((it) => it.status === "downloading");
-  const activeProgress = activeItem?.percent ? activeItem.percent / 100 : 0;
-  const progressPct = totalCount > 0 ? Math.min(Math.round(((doneCount + activeProgress) / totalCount) * 100), 100) : 0;
+  const downloadingItems = items.filter((it) => it.status === "downloading");
+  const progressPct = totalCount > 0
+    ? Math.min(Math.round((doneCount / totalCount) * 100), 100)
+    : 0;
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
@@ -312,7 +332,12 @@ export default function BatchPage() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold text-slate-700 dark:text-slate-200">
-              Downloading {Math.min(doneCount + 1, totalCount)} of {totalCount} files
+              {doneCount} / {totalCount} done
+              {downloadingItems.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-blue-500">
+                  ⚡ {downloadingItems.length} downloading in parallel
+                </span>
+              )}
             </span>
             <span className="text-slate-400 dark:text-slate-500 text-xs">{progressPct}%</span>
           </div>
@@ -322,10 +347,14 @@ export default function BatchPage() {
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          {activeItem && (activeItem.speed || activeItem.eta) && (
-            <div className="flex justify-between text-xs text-slate-400 dark:text-slate-500 pt-0.5">
-              <span>⚡ Active Speed: {activeItem.speed || "calculating..."}</span>
-              <span>⏱️ Active ETA: {activeItem.eta || "estimating..."}</span>
+          {downloadingItems.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-0.5">
+              {downloadingItems.map((it) => (
+                <span key={it.id} className="text-[10px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2 py-0.5 rounded-full truncate max-w-[180px]">
+                  {it.title.length > 22 ? it.title.slice(0, 22) + "…" : it.title}
+                  {it.percent != null && ` ${it.percent.toFixed(0)}%`}
+                </span>
+              ))}
             </div>
           )}
         </div>
@@ -430,7 +459,7 @@ export default function BatchPage() {
                   className="text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
                   {running
                     ? <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Downloading…</>
-                    : `Download (${readyCount})`
+                    : `⚡ Download (${readyCount})`
                   }
                 </button>
               </div>

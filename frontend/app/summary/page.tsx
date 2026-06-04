@@ -8,6 +8,8 @@ import {
   type MonitoredSearch,
 } from "../hooks/useSavedSearchesMonitor";
 
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+
 interface DownloadJob {
   url: string;
   title?: string;
@@ -15,6 +17,28 @@ interface DownloadJob {
   resolution?: string;
   status: string;
   timestamp: string;
+}
+
+interface DbJob {
+  id: number;
+  url: string;
+  title: string;
+  format_id: string;
+  resolution: string;
+  is_audio: number;
+  status: string;
+  error_msg: string | null;
+  filepath: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ErrorEntry {
+  id: number;
+  url: string;
+  error_msg: string;
+  context: string;
+  created_at: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -266,12 +290,233 @@ function MonitorDashboard() {
   );
 }
 
+// ─── Error Dashboard ─────────────────────────────────────────────────────────
+
+function ErrorDashboard() {
+  const [errors, setErrors] = useState<ErrorEntry[]>([]);
+  const [dbJobs, setDbJobs] = useState<DbJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<"errors" | "jobs">("errors");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [errRes, jobRes] = await Promise.all([
+        fetch(`${BACKEND}/logs?limit=200`),
+        fetch(`${BACKEND}/jobs?limit=200`),
+      ]);
+      const errData = errRes.ok ? await errRes.json() : { errors: [] };
+      const jobData = jobRes.ok ? await jobRes.json() : { jobs: [] };
+      setErrors(errData.errors || []);
+      setDbJobs(jobData.jobs || []);
+    } catch {
+      // backend offline
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    const iv = setInterval(fetchData, 30_000);
+    return () => clearInterval(iv);
+  }, [fetchData]);
+
+  const clearErrors = async () => {
+    setClearing(true);
+    try {
+      await fetch(`${BACKEND}/logs`, { method: "DELETE" });
+      setErrors([]);
+    } catch { /* ignore */ }
+    setClearing(false);
+  };
+
+  const filteredJobs = statusFilter === "all"
+    ? dbJobs
+    : dbJobs.filter((j) => j.status === statusFilter);
+
+  const errorJobs = dbJobs.filter((j) => j.status === "error");
+  const doneJobs  = dbJobs.filter((j) => j.status === "done");
+
+  function fmtDate(iso: string) {
+    if (!iso) return "—";
+    try { return new Date(iso + "Z").toLocaleString(); } catch { return iso; }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Total Jobs",  value: dbJobs.length,   color: "slate" },
+          { label: "Completed",   value: doneJobs.length,  color: "green" },
+          { label: "Errors",      value: errorJobs.length, color: "red"   },
+          { label: "Log Entries", value: errors.length,    color: "amber" },
+        ].map((stat) => (
+          <div key={stat.label} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center">
+            <p className={`text-2xl font-bold ${
+              stat.color === "green" ? "text-green-600 dark:text-green-400"
+              : stat.color === "red"   ? "text-red-500 dark:text-red-400"
+              : stat.color === "amber" ? "text-amber-500 dark:text-amber-400"
+              : "text-slate-900 dark:text-white"
+            }`}>{stat.value}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
+        {(["errors", "jobs"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveSubTab(tab)}
+            className={`text-sm font-semibold px-4 py-1.5 rounded-lg transition ${
+              activeSubTab === tab
+                ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-700"
+            }`}>
+            {tab === "errors" ? `⚠️ Error Log (${errors.length})` : `📋 Job Queue (${dbJobs.length})`}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <svg className="w-6 h-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+        </div>
+      ) : activeSubTab === "errors" ? (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Error Log <span className="text-slate-400 font-normal text-xs">· last 200 entries</span>
+            </span>
+            <div className="flex gap-2">
+              <button onClick={fetchData}
+                className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 transition">
+                ↻ Refresh
+              </button>
+              {errors.length > 0 && (
+                <button onClick={clearErrors} disabled={clearing}
+                  className="text-xs text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 border border-red-200 dark:border-red-800 px-3 py-1.5 rounded-lg transition disabled:opacity-40">
+                  {clearing ? "Clearing…" : "Clear Log"}
+                </button>
+              )}
+            </div>
+          </div>
+          {errors.length === 0 ? (
+            <div className="p-12 text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto text-xl">✅</div>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No errors logged</p>
+              <p className="text-xs text-slate-400">All downloads are running cleanly.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-700 max-h-[480px] overflow-y-auto">
+              {errors.map((err) => (
+                <div key={err.id} className="px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 shrink-0 text-red-400 text-base">⚠️</span>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <p className="text-xs font-semibold text-red-600 dark:text-red-400 line-clamp-2">
+                        {err.error_msg}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                        {err.url}
+                      </p>
+                      <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-slate-500">
+                        {err.context && (
+                          <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                            {err.context}
+                          </span>
+                        )}
+                        <span>{fmtDate(err.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        // Job Queue tab
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Persistent Job Queue <span className="text-slate-400 font-normal text-xs">· SQLite · last 200</span>
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Status filter */}
+              <div className="flex gap-1">
+                {["all", "done", "error", "downloading", "queued"].map((s) => (
+                  <button key={s} onClick={() => setStatusFilter(s)}
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition ${
+                      statusFilter === s
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400"
+                    }`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <button onClick={fetchData}
+                className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 transition">
+                ↻ Refresh
+              </button>
+            </div>
+          </div>
+          {filteredJobs.length === 0 ? (
+            <div className="p-10 text-center">
+              <p className="text-sm text-slate-400">No {statusFilter !== "all" ? statusFilter : ""} jobs found.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-700 max-h-[480px] overflow-y-auto">
+              {filteredJobs.map((job) => (
+                <div key={job.id} className="flex items-start gap-4 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+                  <span className={`shrink-0 mt-0.5 text-xs font-bold px-2 py-0.5 rounded-full border ${
+                    job.status === "done"        ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                    : job.status === "error"     ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
+                    : job.status === "downloading" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                    : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600"
+                  }`}>
+                    {job.status}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                      {job.title || job.url}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                      {job.resolution && <span className="font-semibold">{job.resolution} · </span>}
+                      <span className="font-mono">{job.format_id}</span>
+                      {job.is_audio ? " · 🎵 MP3" : ""}
+                    </p>
+                    {job.error_msg && (
+                      <p className="text-[10px] text-red-500 dark:text-red-400 mt-0.5 line-clamp-1">
+                        {job.error_msg}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-0.5">
+                      {fmtDate(job.created_at)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SummaryPage() {
   const [jobs, setJobs] = useState<DownloadJob[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [activeTab, setActiveTab] = useState<"history" | "monitor">("history");
+  const [activeTab, setActiveTab] = useState<"history" | "monitor" | "errors">("history");
 
   useEffect(() => {
     const stored = localStorage.getItem("novaDvrJobs");
@@ -319,6 +564,7 @@ export default function SummaryPage() {
         {([
           { key: "history", label: "📥 Download History" },
           { key: "monitor", label: `🔖 Saved Searches${savedCount > 0 ? ` (${savedCount})` : ""}` },
+          { key: "errors",  label: "⚠️ Error Dashboard" },
         ] as const).map(({ key, label }) => (
           <button
             key={key}
@@ -419,6 +665,22 @@ export default function SummaryPage() {
           </div>
 
           <MonitorDashboard />
+        </div>
+      )}
+
+      {/* ══ ERRORS TAB ════════════════════════════════════════════════════════ */}
+      {activeTab === "errors" && (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl px-5 py-3.5">
+            <span className="text-lg shrink-0">⚠️</span>
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-red-800 dark:text-red-300">Error Dashboard</p>
+              <p className="text-xs text-red-600 dark:text-red-400">
+                Live view of backend error logs and the persistent SQLite job queue. Errors are stored on the backend — data persists across restarts.
+              </p>
+            </div>
+          </div>
+          <ErrorDashboard />
         </div>
       )}
 

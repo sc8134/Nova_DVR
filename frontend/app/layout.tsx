@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import ThemeProvider from "./ThemeProvider";
 import ChatDrawer from "./components/ChatDrawer";
 import AppShell from "./components/AppShell";
+import SplashScreen from "./components/SplashScreen";
 
 export const metadata: Metadata = {
   title: "Nova DVR",
@@ -22,10 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <ThemeProvider>
+          {/* Splash screen — shown once per browser session */}
+          <SplashScreen />
           {/* AppShell: activates background hooks (saved search monitor, etc.) */}
           <AppShell />
           <Sidebar />
-          <main className="flex-1 min-h-screen overflow-y-auto">
+          <main className="flex-1 min-h-screen overflow-y-auto" suppressHydrationWarning>
             {children}
           </main>
           <ChatDrawer />

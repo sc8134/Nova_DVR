@@ -11,6 +11,9 @@ import json
 import time
 import hashlib
 import glob
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -35,6 +38,117 @@ os.makedirs(TEMP_DOWNLOAD_DIR, exist_ok=True)
 
 # Secondary: user-configured persistent directory (optional)
 DEFAULT_DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "NovaDVR")
+
+# ─────────────────────────────────────────────
+# SQLite Persistent Job Queue
+# ─────────────────────────────────────────────
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "jobs.db")
+_db_lock = threading.Lock()
+
+def _db_conn():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def _init_db():
+    with _db_lock:
+        conn = _db_conn()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                url         TEXT NOT NULL,
+                title       TEXT,
+                format_id   TEXT,
+                resolution  TEXT,
+                is_audio    INTEGER DEFAULT 0,
+                status      TEXT DEFAULT 'queued',
+                error_msg   TEXT,
+                filepath    TEXT,
+                created_at  TEXT,
+                updated_at  TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS error_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                url         TEXT,
+                error_msg   TEXT,
+                context     TEXT,
+                created_at  TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+_init_db()
+
+def _db_add_job(url, title="", format_id="", resolution="", is_audio=False):
+    now = datetime.utcnow().isoformat()
+    with _db_lock:
+        conn = _db_conn()
+        cur = conn.execute(
+            "INSERT INTO jobs (url, title, format_id, resolution, is_audio, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+            (url, title, format_id, resolution, int(is_audio), "queued", now, now)
+        )
+        job_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+    return job_id
+
+def _db_update_job(job_id, **kwargs):
+    now = datetime.utcnow().isoformat()
+    kwargs["updated_at"] = now
+    fields = ", ".join(f"{k}=?" for k in kwargs)
+    values = list(kwargs.values()) + [job_id]
+    with _db_lock:
+        conn = _db_conn()
+        conn.execute(f"UPDATE jobs SET {fields} WHERE id=?", values)
+        conn.commit()
+        conn.close()
+
+def _db_log_error(url, error_msg, context=""):
+    now = datetime.utcnow().isoformat()
+    with _db_lock:
+        conn = _db_conn()
+        conn.execute(
+            "INSERT INTO error_log (url, error_msg, context, created_at) VALUES (?,?,?,?)",
+            (url, error_msg, context, now)
+        )
+        # Keep only last 500 errors
+        conn.execute("""
+            DELETE FROM error_log WHERE id NOT IN (
+                SELECT id FROM error_log ORDER BY id DESC LIMIT 500
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+def _db_get_jobs(limit=100, status=None):
+    with _db_lock:
+        conn = _db_conn()
+        if status:
+            rows = conn.execute(
+                "SELECT * FROM jobs WHERE status=? ORDER BY id DESC LIMIT ?",
+                (status, limit)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM jobs ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        result = [dict(r) for r in rows]
+        conn.close()
+    return result
+
+def _db_get_errors(limit=100):
+    with _db_lock:
+        conn = _db_conn()
+        rows = conn.execute(
+            "SELECT * FROM error_log ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        result = [dict(r) for r in rows]
+        conn.close()
+    return result
 
 # ─────────────────────────────────────────────
 # In-memory metadata cache
@@ -144,10 +258,20 @@ VIDEO_HEIGHT_LABELS = {
 @app.route("/health", methods=["GET"])
 def health():
     _cache_evict()  # piggyback lightweight cleanup on health checks
+    # Count jobs by status from SQLite
+    with _db_lock:
+        conn = _db_conn()
+        total_jobs  = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+        active_jobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE status='downloading'").fetchone()[0]
+        error_count = conn.execute("SELECT COUNT(*) FROM error_log").fetchone()[0]
+        conn.close()
     return jsonify({
         "status": "ok",
         "cache_entries": len(_cache),
         "active_downloads": MAX_CONCURRENT_DOWNLOADS - _download_semaphore._value,
+        "total_jobs": total_jobs,
+        "active_jobs": active_jobs,
+        "error_log_count": error_count,
     })
 
 
@@ -318,7 +442,7 @@ def list_formats():
 # SSE Downloader Helpers
 # ─────────────────────────────────────────────
 
-def run_download_thread(ydl_opts, url, q):
+def run_download_thread(ydl_opts, url, q, job_id=None):
     """Runs yt-dlp in a daemon thread with automatic retry on transient errors."""
     PERMANENT_ERRORS = [
         "private", "login required", "age-restricted", "removed",
@@ -341,6 +465,9 @@ def run_download_thread(ydl_opts, url, q):
 
         last_error = None
         MAX_RETRIES = 2
+
+        if job_id:
+            _db_update_job(job_id, status="downloading")
 
         for attempt in range(MAX_RETRIES + 1):
             try:
@@ -368,6 +495,8 @@ def run_download_thread(ydl_opts, url, q):
                             pass
 
                     logger.info(f"Download complete: {actual_filename}")
+                    if job_id:
+                        _db_update_job(job_id, status="done", filepath=actual_filename)
                     q.put({
                         "status": "done",
                         "filepath": actual_filename,
@@ -389,32 +518,40 @@ def run_download_thread(ydl_opts, url, q):
                 else:
                     logger.error(f"Download failed after {MAX_RETRIES + 1} attempts: {last_error}")
 
-        q.put({"status": "error", "error": last_error or "Download failed after retries"})
+        final_error = last_error or "Download failed after retries"
+        if job_id:
+            _db_update_job(job_id, status="error", error_msg=final_error)
+        _db_log_error(url, final_error, context="run_download_thread")
+        q.put({"status": "error", "error": final_error})
 
     except Exception as e:
+        err_str = str(e)
         logger.error(f"Download thread exception for {url}: {e}")
-        q.put({"status": "error", "error": str(e)})
+        if job_id:
+            _db_update_job(job_id, status="error", error_msg=err_str)
+        _db_log_error(url, err_str, context="run_download_thread:exception")
+        q.put({"status": "error", "error": err_str})
 
 
-def make_download_stream(ydl_opts, url, is_temp):
+def make_download_stream(ydl_opts, url, is_temp, job_id=None):
     """
     Generator: acquire concurrency semaphore → start download thread
     → yield SSE events → release semaphore.
     """
     acquired = _download_semaphore.acquire(timeout=5)
     if not acquired:
+        err = "Server is busy — too many concurrent downloads. Please try again in a moment."
+        if job_id:
+            _db_update_job(job_id, status="error", error_msg=err)
         yield (
             "data: "
-            + json.dumps({
-                "status": "error",
-                "error": "Server is busy — too many concurrent downloads. Please try again in a moment.",
-            })
+            + json.dumps({"status": "error", "error": err})
             + "\n\n"
         )
         return
 
     q: queue.Queue = queue.Queue()
-    t = threading.Thread(target=run_download_thread, args=(ydl_opts, url, q))
+    t = threading.Thread(target=run_download_thread, args=(ydl_opts, url, q, job_id))
     t.daemon = True
     t.start()
 
@@ -429,7 +566,10 @@ def make_download_stream(ydl_opts, url, is_temp):
                     break
             except queue.Empty:
                 if not t.is_alive():
-                    yield f"data: {json.dumps({'status': 'error', 'error': 'Download thread terminated unexpectedly.'})}\n\n"
+                    err = "Download thread terminated unexpectedly."
+                    if job_id:
+                        _db_update_job(job_id, status="error", error_msg=err)
+                    yield f"data: {json.dumps({'status': 'error', 'error': err})}\n\n"
                     break
     finally:
         _download_semaphore.release()
@@ -445,12 +585,16 @@ def download():
     is_audio     = data.get("is_audio", False)
     is_4k        = data.get("is_4k", False)
     custom_dir   = (data.get("download_dir") or "").strip()
+    title        = data.get("title", "").strip()
 
     save_dir     = get_download_dir(custom_dir)
     is_temp      = (save_dir == TEMP_DOWNLOAD_DIR)
 
     if not url or not format_id:
         return jsonify({"error": "Missing URL or format_id"}), 400
+
+    # Persist job to SQLite
+    job_id = _db_add_job(url, title=title, format_id=format_id, is_audio=is_audio)
 
     if is_audio:
         ydl_opts = {
@@ -474,7 +618,7 @@ def download():
             "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
         }
 
-    return Response(make_download_stream(ydl_opts, url, is_temp), mimetype='text/event-stream')
+    return Response(make_download_stream(ydl_opts, url, is_temp, job_id=job_id), mimetype='text/event-stream')
 
 
 # ─────────────────────────────────────────────
@@ -512,7 +656,7 @@ def serve_file():
 
 
 # ─────────────────────────────────────────────
-# /batch-download  – multiple URLs at once
+# /batch-download  – sequential batch (legacy, kept for compatibility)
 # ─────────────────────────────────────────────
 @app.route("/batch-download", methods=["POST"])
 def batch_download():
@@ -529,10 +673,13 @@ def batch_download():
         format_id = job.get("format_id", "").strip()
         is_audio  = job.get("is_audio", False)
         is_4k     = job.get("is_4k", False)
+        title     = job.get("title", "")
 
         if not url or not format_id:
             results.append({"url": url, "status": "error", "message": "Missing URL or format_id"})
             continue
+
+        job_id = _db_add_job(url, title=title, format_id=format_id, is_audio=is_audio)
 
         if is_audio:
             ydl_opts = {
@@ -552,13 +699,219 @@ def batch_download():
             }
 
         try:
+            _db_update_job(job_id, status="downloading")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-            results.append({"url": url, "status": "done"})
+            _db_update_job(job_id, status="done")
+            results.append({"url": url, "status": "done", "job_id": job_id})
         except Exception as e:
-            results.append({"url": url, "status": "error", "message": str(e)})
+            err_str = str(e)
+            _db_update_job(job_id, status="error", error_msg=err_str)
+            _db_log_error(url, err_str, context="batch-download")
+            results.append({"url": url, "status": "error", "message": err_str})
 
     return jsonify({"results": results, "download_dir": download_dir})
+
+
+# ─────────────────────────────────────────────
+# /parallel-batch  – parallel downloads via SSE
+# Streams per-item progress events with throttling (max 3 concurrent)
+# ─────────────────────────────────────────────
+
+MAX_PARALLEL_BATCH = 3  # throttle: at most 3 parallel downloads in a batch
+
+def _run_single_parallel_job(job: dict, download_dir: str) -> dict:
+    """
+    Worker executed in a ThreadPoolExecutor thread.
+    Returns a result dict with status, filepath, filename, job_id.
+    Blocks the semaphore for its duration.
+    """
+    url       = job.get("url", "").strip()
+    format_id = job.get("format_id", "").strip()
+    is_audio  = job.get("is_audio", False)
+    is_4k     = job.get("is_4k", False)
+    title     = job.get("title", "")
+    client_id = job.get("id")  # frontend item id for correlation
+
+    job_id = _db_add_job(url, title=title, format_id=format_id, is_audio=is_audio)
+
+    if not url or not format_id:
+        return {"client_id": client_id, "url": url, "status": "error",
+                "error": "Missing URL or format_id", "job_id": job_id}
+
+    if is_audio:
+        ydl_opts = {
+            "format": f"{format_id}/bestaudio",
+            "outtmpl": os.path.join(download_dir, "%(title)s.%(ext)s"),
+            "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
+            "quiet": True,
+            "socket_timeout": 30,
+        }
+    else:
+        fmt = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best" if is_4k else f"{format_id}+bestaudio[ext=m4a]/bestaudio/{format_id}"
+        ydl_opts = {
+            "format": fmt,
+            "outtmpl": os.path.join(download_dir, "%(title)s.%(ext)s"),
+            "merge_output_format": "mp4",
+            "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
+            "quiet": True,
+            "socket_timeout": 30,
+        }
+
+    PERMANENT_ERRORS = [
+        "private", "login required", "age-restricted", "removed",
+        "unavailable", "members only", "copyright", "geo", "region",
+        "live", "is live", "unsupported url",
+    ]
+
+    acquired = _download_semaphore.acquire(timeout=60)
+    if not acquired:
+        err = "Server busy — semaphore timeout"
+        _db_update_job(job_id, status="error", error_msg=err)
+        _db_log_error(url, err, context="parallel-batch")
+        return {"client_id": client_id, "url": url, "status": "error", "error": err, "job_id": job_id}
+
+    _db_update_job(job_id, status="downloading")
+    last_error = None
+    try:
+        for attempt in range(3):
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    actual_filename = ydl.prepare_filename(info)
+                    base = os.path.splitext(actual_filename)[0]
+                    actual_filename = base + (".mp3" if is_audio else ".mp4")
+                    save_dir = os.path.dirname(actual_filename)
+
+                    if not os.path.exists(actual_filename):
+                        try:
+                            files = [os.path.join(save_dir, f) for f in os.listdir(save_dir)
+                                     if os.path.isfile(os.path.join(save_dir, f))]
+                            if files:
+                                actual_filename = max(files, key=os.path.getmtime)
+                        except Exception:
+                            pass
+
+                    _db_update_job(job_id, status="done", filepath=actual_filename)
+                    return {
+                        "client_id": client_id, "url": url, "status": "done",
+                        "filepath": actual_filename,
+                        "filename": os.path.basename(actual_filename),
+                        "is_temp": (save_dir == TEMP_DOWNLOAD_DIR),
+                        "job_id": job_id,
+                    }
+            except yt_dlp.utils.DownloadError as e:
+                last_error = str(e)
+                if any(p in last_error.lower() for p in PERMANENT_ERRORS):
+                    break
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+
+        err = last_error or "Download failed"
+        _db_update_job(job_id, status="error", error_msg=err)
+        _db_log_error(url, err, context="parallel-batch")
+        return {"client_id": client_id, "url": url, "status": "error", "error": err, "job_id": job_id}
+
+    except Exception as e:
+        err = str(e)
+        _db_update_job(job_id, status="error", error_msg=err)
+        _db_log_error(url, err, context="parallel-batch:exception")
+        return {"client_id": client_id, "url": url, "status": "error", "error": err, "job_id": job_id}
+    finally:
+        _download_semaphore.release()
+
+
+@app.route("/parallel-batch", methods=["POST"])
+def parallel_batch():
+    """
+    Parallel batch download with SSE streaming.
+    Streams JSON events per item as they complete.
+
+    Request:
+      { "jobs": [{id, url, format_id, is_audio, is_4k, title}], "download_dir": "..." }
+
+    SSE events:
+      { "type": "start",    "client_id": N, "total": N }
+      { "type": "done",     "client_id": N, "filepath": "...", "filename": "...", "is_temp": bool }
+      { "type": "error",    "client_id": N, "error": "..." }
+      { "type": "complete", "done": N, "errors": N, "total": N }
+    """
+    data         = request.json or {}
+    jobs         = data.get("jobs", [])
+    download_dir = get_download_dir(data.get("download_dir", ""))
+
+    if not jobs:
+        return jsonify({"error": "No jobs provided"}), 400
+
+    def generate():
+        total = len(jobs)
+        yield f"data: {json.dumps({'type': 'start', 'total': total})}\n\n"
+
+        done_count  = 0
+        error_count = 0
+
+        with ThreadPoolExecutor(max_workers=MAX_PARALLEL_BATCH) as executor:
+            future_map = {
+                executor.submit(_run_single_parallel_job, job, download_dir): job
+                for job in jobs
+            }
+            for future in as_completed(future_map):
+                try:
+                    result = future.result()
+                    if result["status"] == "done":
+                        done_count += 1
+                        yield f"data: {json.dumps({'type': 'done', **result})}\n\n"
+                    else:
+                        error_count += 1
+                        yield f"data: {json.dumps({'type': 'error', **result})}\n\n"
+                except Exception as e:
+                    error_count += 1
+                    job = future_map[future]
+                    yield f"data: {json.dumps({'type': 'error', 'client_id': job.get('id'), 'url': job.get('url'), 'error': str(e)})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'complete', 'done': done_count, 'errors': error_count, 'total': total})}\n\n"
+
+    return Response(generate(), mimetype="text/event-stream")
+
+
+# ─────────────────────────────────────────────
+# /jobs  – list persistent job queue from SQLite
+# ─────────────────────────────────────────────
+@app.route("/jobs", methods=["GET"])
+def get_jobs():
+    """
+    GET /jobs?limit=100&status=done
+    Returns the persistent SQLite job history.
+    """
+    limit  = int(request.args.get("limit", 100))
+    status = request.args.get("status", None)
+    jobs   = _db_get_jobs(limit=limit, status=status)
+    return jsonify({"jobs": jobs, "count": len(jobs)})
+
+
+# ─────────────────────────────────────────────
+# /logs  – error log viewer
+# ─────────────────────────────────────────────
+@app.route("/logs", methods=["GET"])
+def get_logs():
+    """
+    GET /logs?limit=100
+    Returns the last N error log entries from SQLite.
+    """
+    limit = int(request.args.get("limit", 100))
+    errors = _db_get_errors(limit=limit)
+    return jsonify({"errors": errors, "count": len(errors)})
+
+
+@app.route("/logs", methods=["DELETE"])
+def clear_logs():
+    """DELETE /logs — wipe the error log table."""
+    with _db_lock:
+        conn = _db_conn()
+        conn.execute("DELETE FROM error_log")
+        conn.commit()
+        conn.close()
+    return jsonify({"status": "cleared"})
 
 
 # ─────────────────────────────────────────────
@@ -974,12 +1327,16 @@ def download_with_options():
     sub_lang     = data.get("sub_lang", "")     # e.g. "en"
     sub_format   = data.get("sub_format", "srt")  # "srt" or "vtt"
     embed_subs   = data.get("embed_subs", False)
+    title        = data.get("title", "").strip()
 
     if not url or not format_id:
         return jsonify({"error": "Missing URL or format_id"}), 400
 
     save_dir = get_download_dir(custom_dir)
     is_temp  = (save_dir == TEMP_DOWNLOAD_DIR)
+
+    # Persist job to SQLite
+    job_id = _db_add_job(url, title=title, format_id=format_id, is_audio=is_audio)
 
     postprocessors = []
     if is_audio:
@@ -1022,7 +1379,7 @@ def download_with_options():
         ydl_opts["subtitleslangs"]   = [sub_lang]
         ydl_opts["subtitlesformat"]  = sub_format
 
-    return Response(make_download_stream(ydl_opts, url, is_temp), mimetype='text/event-stream')
+    return Response(make_download_stream(ydl_opts, url, is_temp, job_id=job_id), mimetype='text/event-stream')
 
 
 # ─────────────────────────────────────────────
