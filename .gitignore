@@ -1,0 +1,26 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# Downloads / temp media files
+backend/Download/
+backend/*.mp4
+backend/*.mp3
+backend/*.mkv
+backend/*.webm
+
+# OS
+.DS_Store
+Thumbs.db
