@@ -24,6 +24,11 @@ backend/*.webm
 # Runtime generated files
 backend/jobs.db
 
+# Cookies — NEVER commit these, they contain session tokens
+*cookies.txt
+*.cookies
+cookies/
+
 # OS
 .DS_Store
 Thumbs.db
