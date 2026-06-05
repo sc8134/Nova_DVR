@@ -72,6 +72,7 @@ function formatDate(d: string | null) {
 }
 
 import { BACKEND } from "./lib/config";
+import { safeJson } from "./lib/safeJson";
 
 function DownloaderInner() {
   const searchParams = useSearchParams();
@@ -143,7 +144,7 @@ function DownloaderInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: targetUrl }),
       });
-      const data = await res.json();
+      const data = await safeJson(res) as { error?: string; title: string; uploader: string; duration: number | null; thumbnail: string | null; platform: string; view_count: number | null; upload_date: string | null; webpage_url: string; valid?: boolean };
       if (!res.ok || data.error) throw new Error(data.error || "Inspection failed");
       setMeta(data);
       setInspectStatus("ok");
@@ -190,7 +191,7 @@ function DownloaderInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json();
+      const data = await safeJson(res) as { error?: string; formats?: Format[]; title?: string };
       if (!res.ok || data.error) throw new Error(data.error || "Failed to fetch formats");
       const fetchedFormats = data.formats || [];
       setFormats(fetchedFormats);

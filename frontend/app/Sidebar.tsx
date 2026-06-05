@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useBackendStatus } from "./hooks/useBackendStatus";
 
 const navItems = [
   {
@@ -55,6 +56,7 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { status, recheck } = useBackendStatus();
 
   return (
     <aside
@@ -125,27 +127,51 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="shrink-0 px-4 py-4 border-t border-white/10">
+        {/* Warming up banner */}
+        {(status === "warming" || status === "offline") && (
+          <div className={`mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-semibold border ${
+            status === "warming"
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+              : "bg-red-500/10 border-red-500/30 text-red-300"
+          }`}>
+            {status === "warming" ? (
+              <svg className="w-3 h-3 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+            )}
+            <span className="flex-1">
+              {status === "warming" ? "Backend warming up… (~30s)" : "Backend offline"}
+            </span>
+            <button onClick={recheck} className="underline underline-offset-2 hover:text-white transition">
+              retry
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2.5 px-1">
           <div className="relative w-9 h-9 rounded-xl overflow-hidden bg-slate-950 ring-1 ring-white/20 shrink-0">
-            <Image
-              src="/nova_logo.png"
-              alt="Nova DVR"
-              fill
-              className="object-contain p-0.5"
-            />
+            <Image src="/nova_logo.png" alt="Nova DVR" fill className="object-contain p-0.5" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-slate-200 truncate">
-              Nova <span className="text-orange-400">DVR</span>
-            </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-slate-200 truncate">
+                Nova <span className="text-orange-400">DVR</span>
+              </p>
+              {/* Status dot */}
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                status === "online"   ? "bg-green-400" :
+                status === "warming"  ? "bg-amber-400 animate-pulse" :
+                status === "checking" ? "bg-slate-400 animate-pulse" :
+                                        "bg-red-400"
+              }`} title={status} />
+            </div>
             <p className="text-xs text-slate-400">
               Built by{" "}
-              <a
-                href="https://sagarrc.com.np"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-200 underline underline-offset-2 transition"
-              >
+              <a href="https://sagarrc.com.np" target="_blank" rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-200 underline underline-offset-2 transition">
                 Sagar RC
               </a>
             </p>

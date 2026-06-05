@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-
-export type BackendStatus = "checking" | "online" | "offline";
-
 import { BACKEND } from "../lib/config";
-const CHECK_INTERVAL_MS = 30_000; // re-check every 30 s
-const TIMEOUT_MS = 5_000;
+
+export type BackendStatus = "checking" | "online" | "offline" | "warming";
+
+const CHECK_INTERVAL_MS = 30_000;
+const TIMEOUT_MS = 8_000;   // longer timeout to survive cold starts
 
 export function useBackendStatus(): {
   status: BackendStatus;
@@ -20,7 +20,17 @@ export function useBackendStatus(): {
       const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
       const res = await fetch(`${BACKEND}/health`, { signal: controller.signal });
       clearTimeout(timer);
-      setStatus(res.ok ? "online" : "offline");
+      if (res.ok) {
+        const ct = res.headers.get("content-type") || "";
+        // If Render returns HTML, it's still warming up
+        if (ct.includes("text/html")) {
+          setStatus("warming");
+        } else {
+          setStatus("online");
+        }
+      } else {
+        setStatus("offline");
+      }
     } catch {
       setStatus("offline");
     }

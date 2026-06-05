@@ -56,6 +56,7 @@ function extractUrls(text: string): string[] {
 }
 
 import { BACKEND } from "../lib/config";
+import { safeJson } from "../lib/safeJson";
 let nextId = 1;
 
 function applyPresetToFormats(formats: FormatOption[], preset: GlobalPreset): { format_id: string; resolution: string; is_audio: boolean; is_4k: boolean } | null {
@@ -136,8 +137,8 @@ export default function BatchPage() {
     update(id, { status: "fetching", error: "" });
     try {
       const [insp, fmts] = await Promise.all([
-        fetch(`${BACKEND}/inspect`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) }).then((r) => r.json()),
-        fetch(`${BACKEND}/list-formats`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) }).then((r) => r.json()),
+        fetch(`${BACKEND}/inspect`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) }).then((r) => safeJson(r)) as Promise<{ title?: string; thumbnail?: string | null; error?: string }>,
+        fetch(`${BACKEND}/list-formats`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) }).then((r) => safeJson(r)) as Promise<{ formats?: FormatOption[]; error?: string }>,
       ]);
       if (fmts.error) throw new Error(fmts.error);
       const allFormats: FormatOption[] = fmts.formats || [];

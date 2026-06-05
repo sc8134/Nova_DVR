@@ -57,6 +57,7 @@ const CLUSTERS = [
 ];
 
 import { BACKEND } from "../lib/config";
+import { safeJson } from "../lib/safeJson";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -234,8 +235,8 @@ export default function SearchHubPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: q, platform: platformId, limit }),
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const data = await safeJson(res) as { error?: string; results?: SearchResult[] };
+    if (data.error) throw new Error(String(data.error));
     return (data.results || []) as SearchResult[];
   };
 
@@ -319,8 +320,8 @@ export default function SearchHubPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ platform, limit: 20 }),
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const data = await safeJson(res) as { error?: string; results?: SearchResult[] };
+      if (data.error) throw new Error(String(data.error));
       setTrending(
         await clusterResults(data.results || [])
       );
