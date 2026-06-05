@@ -62,7 +62,7 @@ export default function Sidebar() {
     <aside
       className="w-64 shrink-0 text-white flex flex-col h-screen sticky top-0 z-10 overflow-hidden relative"
       style={{
-        backgroundImage: "url('/sidebar background.png')",
+        backgroundImage: "url('/sidebar-background.png')",
         backgroundSize: "100% 100%",
         backgroundPosition: "top left",
         backgroundRepeat: "no-repeat",

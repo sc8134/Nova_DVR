@@ -29,6 +29,9 @@ backend/jobs.db
 *.cookies
 cookies/
 
+# Old spaced filename — replaced with sidebar-background.png
+frontend/public/sidebar background.png
+
 # OS
 .DS_Store
 Thumbs.db
