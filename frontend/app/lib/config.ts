@@ -1,9 +1,7 @@
 /**
  * Central backend URL config.
- * Falls back to the production Render URL if the env var is not set.
- * This ensures the app works even if NEXT_PUBLIC_BACKEND_URL is missing
- * from the Vercel build environment.
+ * Falls back to the production Railway URL if the env var is not set.
  */
 export const BACKEND =
   process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, "") ||
-  "https://nova-dvr.onrender.com";
+  "https://novadvrbackend-production.up.railway.app";
