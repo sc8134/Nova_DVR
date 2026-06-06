@@ -4,4 +4,4 @@
  */
 export const BACKEND =
   process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, "") ||
-  "https://novadvrbackend-production.up.railway.app";
+  "https://api.novadvr.sagarrc.com.np";
