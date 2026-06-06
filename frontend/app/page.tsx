@@ -267,7 +267,9 @@ function DownloaderInner() {
     try {
       const body: Record<string, unknown> = {
         url, format_id: selectedFormat.format_id,
-        is_audio, is_4k, download_dir: downloadDir,
+        is_audio, is_4k,
+        resolution: selectedFormat.resolution,
+        download_dir: downloadDir,
       };
       if (useAdvanced) {
         if (trimStart) body.start_time = trimStart;
