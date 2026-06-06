@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Sidebar from "./Sidebar";
 import ThemeProvider from "./ThemeProvider";
@@ -15,6 +15,17 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)",  color: "#0f172a" },
+  ],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -28,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* AppShell: activates background hooks (saved search monitor, etc.) */}
           <AppShell />
           <Sidebar />
-          <main className="flex-1 min-h-screen overflow-y-auto" suppressHydrationWarning>
+          <main className="flex-1 min-h-screen overflow-y-auto pt-14 md:pt-0" suppressHydrationWarning>
             {children}
           </main>
           <ChatDrawer />

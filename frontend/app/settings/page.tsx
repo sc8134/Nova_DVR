@@ -109,7 +109,7 @@ export default function SettingsPage() {
   const hasDir = directory.trim().length > 0;
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-8">
       {/* Hidden fallback file input */}
       <input
         ref={inputRef}

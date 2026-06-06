@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useBackendStatus } from "./hooks/useBackendStatus";
 
 const navItems = [
@@ -54,38 +55,19 @@ const navItems = [
   },
 ];
 
-export default function Sidebar() {
+// ─── Sidebar inner content (shared between mobile + desktop) ──────────────────
+
+function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const pathname = usePathname();
   const { status, recheck } = useBackendStatus();
 
   return (
-    <aside
-      className="w-64 shrink-0 text-white flex flex-col h-screen sticky top-0 z-10 overflow-hidden relative"
-      style={{
-        backgroundImage: "url('/sidebar-background.png')",
-        backgroundSize: "100% 100%",
-        backgroundPosition: "top left",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      {/* Dark overlay — no blur so the image stays crisp */}
-      <div className="absolute inset-0 bg-black/60 pointer-events-none" />
-
-      {/* All content sits above the overlay */}
-      <div className="relative flex flex-col h-full">
-
+    <div className="relative flex flex-col h-full">
       {/* Logo */}
       <div className="px-4 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          {/* Logo with solid dark ring so it pops against any background */}
           <div className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 bg-slate-950 ring-2 ring-white/20 shadow-xl shadow-black/60">
-            <Image
-              src="/nova_logo.png"
-              alt="Nova DVR"
-              fill
-              className="object-contain p-0.5"
-              priority
-            />
+            <Image src="/nova_logo.png" alt="Nova DVR" fill className="object-contain p-0.5" priority />
           </div>
           <div>
             <p className="font-extrabold text-white text-base leading-tight tracking-wide drop-shadow-md">
@@ -98,28 +80,20 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-3 mb-3">
-          Menu
-        </p>
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-3 mb-3">Menu</p>
         {navItems.map(({ href, label, icon }) => {
           const active = pathname === href;
           return (
-            <Link
-              key={href}
-              href={href}
+            <Link key={href} href={href} onClick={onNavClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                 active
                   ? "bg-blue-600 text-white shadow-md shadow-blue-900/60"
                   : "text-slate-300 hover:text-white hover:bg-white/10"
               }`}
             >
-              <span className={active ? "text-white" : "text-slate-400"}>
-                {icon}
-              </span>
+              <span className={active ? "text-white" : "text-slate-400"}>{icon}</span>
               {label}
-              {active && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-300" />
-              )}
+              {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-300" />}
             </Link>
           );
         })}
@@ -127,7 +101,6 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="shrink-0 px-4 py-4 border-t border-white/10">
-        {/* Warming up banner */}
         {(status === "warming" || status === "offline") && (
           <div className={`mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-semibold border ${
             status === "warming"
@@ -142,15 +115,10 @@ export default function Sidebar() {
             ) : (
               <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
             )}
-            <span className="flex-1">
-              {status === "warming" ? "Backend warming up… (~30s)" : "Backend offline"}
-            </span>
-            <button onClick={recheck} className="underline underline-offset-2 hover:text-white transition">
-              retry
-            </button>
+            <span className="flex-1">{status === "warming" ? "Backend warming up…" : "Backend offline"}</span>
+            <button onClick={recheck} className="underline underline-offset-2 hover:text-white transition">retry</button>
           </div>
         )}
-
         <div className="flex items-center gap-2.5 px-1">
           <div className="relative w-9 h-9 rounded-xl overflow-hidden bg-slate-950 ring-1 ring-white/20 shrink-0">
             <Image src="/nova_logo.png" alt="Nova DVR" fill className="object-contain p-0.5" />
@@ -160,7 +128,6 @@ export default function Sidebar() {
               <p className="text-xs font-semibold text-slate-200 truncate">
                 Nova <span className="text-orange-400">DVR</span>
               </p>
-              {/* Status dot */}
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                 status === "online"   ? "bg-green-400" :
                 status === "warming"  ? "bg-amber-400 animate-pulse" :
@@ -178,8 +145,94 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
+// ─── Main Sidebar export ──────────────────────────────────────────────────────
+
+const sidebarBg = {
+  backgroundImage: "url('/sidebar-background.png')",
+  backgroundSize: "100% 100%",
+  backgroundPosition: "top left",
+  backgroundRepeat: "no-repeat",
+};
+
+export default function Sidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close drawer on route change
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  return (
+    <>
+      {/* ── Mobile top bar ── */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 bg-slate-900/95 backdrop-blur border-b border-white/10">
+        <div className="flex items-center gap-2.5">
+          <div className="relative w-8 h-8 rounded-xl overflow-hidden bg-slate-950 ring-1 ring-white/20 shrink-0">
+            <Image src="/nova_logo.png" alt="Nova DVR" fill className="object-contain p-0.5" priority />
+          </div>
+          <p className="font-extrabold text-white text-sm tracking-wide">
+            Nova <span className="text-orange-400">DVR</span>
+          </p>
+        </div>
+        <button
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition text-white"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </button>
       </div>
-    </aside>
+
+      {/* ── Mobile drawer backdrop ── */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Mobile drawer ── */}
+      <div
+        className={`md:hidden fixed top-0 left-0 h-full w-72 z-50 text-white flex flex-col overflow-hidden transition-transform duration-300 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={sidebarBg}
+      >
+        <div className="absolute inset-0 bg-black/60 pointer-events-none" />
+        {/* Close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close menu"
+          className="relative z-10 self-end m-3 w-9 h-9 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition text-white"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <SidebarContent onNavClick={() => setMobileOpen(false)} />
+      </div>
+
+      {/* ── Desktop sidebar ── */}
+      <aside
+        className="hidden md:flex w-64 shrink-0 text-white flex-col h-screen sticky top-0 z-10 overflow-hidden relative"
+        style={sidebarBg}
+      >
+        <div className="absolute inset-0 bg-black/60 pointer-events-none" />
+        <SidebarContent />
+      </aside>
+    </>
   );
 }
