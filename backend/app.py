@@ -32,6 +32,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger("nova_dvr")
 
+# ─────────────────────────────────────────────
+# YouTube cookies — anti-bot bypass for cloud IPs
+# Set YOUTUBE_COOKIES_B64 on Railway/Render to base64-encoded cookies.txt
+# PowerShell encode: [Convert]::ToBase64String([IO.File]::ReadAllBytes("cookies.txt")) | Out-File cookies_b64.txt -NoNewline
+# ─────────────────────────────────────────────
+
+import base64 as _base64
+
+_COOKIE_FILE: str | None = None
+
+def _setup_cookies():
+    global _COOKIE_FILE
+    b64 = os.environ.get("YOUTUBE_COOKIES_B64", "").strip()
+    if b64:
+        try:
+            cookie_content = _base64.b64decode(b64).decode("utf-8")
+        except Exception as e:
+            logger.warning(f"Failed to decode YOUTUBE_COOKIES_B64: {e}")
+            cookie_content = ""
+    else:
+        cookie_content = os.environ.get("YOUTUBE_COOKIES", "").strip()
+
+    if not cookie_content:
+        logger.info("No YouTube cookies configured")
+        return None
+    try:
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", prefix="yt_cookies_",
+            delete=False, encoding="utf-8"
+        )
+        tmp.write(cookie_content)
+        tmp.close()
+        _COOKIE_FILE = tmp.name
+        logger.info(f"YouTube cookies loaded → {_COOKIE_FILE}")
+    except Exception as e:
+        logger.warning(f"Failed to write cookie file: {e}")
+    return _COOKIE_FILE
+
+_setup_cookies()
+
+def _cookie_opts() -> dict:
+    """Return yt-dlp cookiefile option if cookies are available."""
+    if _COOKIE_FILE and os.path.exists(_COOKIE_FILE):
+        return {"cookiefile": _COOKIE_FILE}
+    return {}
+
 
 # ─────────────────────────────────────────────
 # Directories
