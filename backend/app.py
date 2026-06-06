@@ -40,7 +40,7 @@ logger = logging.getLogger("nova_dvr")
 
 import base64 as _base64
 
-_COOKIE_FILE: str | None = None
+_COOKIE_FILE = None  # type: ignore
 
 def _setup_cookies():
     global _COOKIE_FILE
@@ -1030,7 +1030,7 @@ def build_webpage_url(entry: dict, platform: str) -> str:
     return url_field or entry.get("webpage_url", "")
 
 
-def best_thumbnail(entry: dict) -> str | None:
+def best_thumbnail(entry: dict):
     """Safely extract the best thumbnail URL from a flat entry."""
     # Direct thumbnail string
     t = entry.get("thumbnail")
@@ -1679,7 +1679,7 @@ CLUSTER_RULES = [
     },
 ]
 
-def classify_title(title: str, uploader: str = "", duration: int | None = None) -> str | None:
+def classify_title(title: str, uploader: str = "", duration=None):
     """Score each cluster and return the highest-confidence label, or None."""
     title_lower  = (title or "").lower()
     upload_lower = (uploader or "").lower()
