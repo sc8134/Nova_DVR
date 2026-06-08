@@ -5,6 +5,7 @@ import ThemeProvider from "./ThemeProvider";
 import ChatDrawer from "./components/ChatDrawer";
 import AppShell from "./components/AppShell";
 import SplashScreen from "./components/SplashScreen";
+import { AuthProvider } from "./context/AuthContext";
 
 export const metadata: Metadata = {
   title: "Nova DVR",
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <ThemeProvider>
+          <AuthProvider>
           {/* Splash screen — shown once per browser session */}
           <SplashScreen />
           {/* AppShell: activates background hooks (saved search monitor, etc.) */}
@@ -43,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <ChatDrawer />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

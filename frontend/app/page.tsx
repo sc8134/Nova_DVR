@@ -8,6 +8,8 @@ import DownloadLocationModal from "./components/DownloadLocationModal";
 import TrimSlider from "./components/TrimSlider";
 import HeroSection from "./components/HeroSection";
 import TrustSection from "./components/TrustSection";
+import UpgradeModal from "./components/UpgradeModal";
+import { useAuth } from "./context/AuthContext";
 
 interface VideoMeta {
   title: string;
@@ -79,8 +81,10 @@ import { safeJson } from "./lib/safeJson";
 function DownloaderInner({ initialUrl }: { initialUrl?: string }) {
   const searchParams = useSearchParams();
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const { deductToken } = useAuth();
 
   const [url, setUrl] = useState(initialUrl || "");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [inspecting, setInspecting]     = useState(false);
   const [meta, setMeta]                 = useState<VideoMeta | null>(null);
   const [formats, setFormats]           = useState<Format[]>([]);
@@ -289,6 +293,11 @@ function DownloaderInner({ initialUrl }: { initialUrl?: string }) {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        if (res.status === 429 && errData.error === "token_limit_reached") {
+          setShowUpgradeModal(true);
+          setDownloading(false);
+          return;
+        }
         throw new Error(errData.error || "Download failed to start");
       }
 
@@ -338,6 +347,7 @@ function DownloaderInner({ initialUrl }: { initialUrl?: string }) {
                 setSessionJobs((p) => [job, ...p]);
                 fireNotification("Nova DVR — Download complete", `${meta?.title || url} saved to ${data.save_dir || downloadDir}`);
                 setRetryCount(0);
+                deductToken();
                 const existing = JSON.parse(localStorage.getItem("novaDvrJobs") || "[]");
                 existing.unshift(job);
                 localStorage.setItem("novaDvrJobs", JSON.stringify(existing));
@@ -814,6 +824,11 @@ function DownloaderInner({ initialUrl }: { initialUrl?: string }) {
           setTimeout(() => urlInputRef.current?.focus(), 50);
         }}
       />
+
+      {/* ── Upgrade Modal ── */}
+      {showUpgradeModal && (
+        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
+      )}
 
       {/* ── Download Location Modal ── */}
       {showLocationModal && (
