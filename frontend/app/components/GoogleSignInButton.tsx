@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { BACKEND } from "../lib/config";
 import { setToken } from "../lib/auth";
+import { safeJson } from "../lib/safeJson";
 
 interface Props {
   onSuccess: (userData: Record<string, unknown>) => void;
@@ -35,9 +36,9 @@ export default function GoogleSignInButton({ onSuccess, onError, label = "Contin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id_token: response.credential }),
       });
-      const data = await res.json();
+      const data = await safeJson(res) as Record<string, unknown> & { error?: string };
       if (!res.ok) throw new Error(data.error || "Google sign-in failed");
-      setToken(data.token);
+      setToken(data.token as string);
       onSuccess(data);
     } catch (e: unknown) {
       onError?.(e instanceof Error ? e.message : "Google sign-in failed");

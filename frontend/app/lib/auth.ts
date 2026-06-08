@@ -2,6 +2,7 @@
  * Auth utilities — JWT storage + API helpers
  */
 import { BACKEND } from "./config";
+import { safeJson } from "./safeJson";
 
 export interface User {
   user_id: number;
@@ -43,7 +44,7 @@ export async function apiRegister(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, referral_code }),
   });
-  const data = await res.json();
+  const data = await safeJson(res) as User & { token: string; error?: string };
   if (!res.ok) throw new Error(data.error || "Registration failed");
   return data;
 }
@@ -57,7 +58,7 @@ export async function apiLogin(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json();
+  const data = await safeJson(res) as User & { token: string; error?: string };
   if (!res.ok) throw new Error(data.error || "Login failed");
   return data;
 }
@@ -65,9 +66,13 @@ export async function apiLogin(
 export async function apiMe(): Promise<User | null> {
   const token = getToken();
   if (!token) return null;
-  const res = await fetch(`${BACKEND}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) { clearToken(); return null; }
-  return res.json();
+  try {
+    const res = await fetch(`${BACKEND}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { clearToken(); return null; }
+    return await safeJson(res) as User;
+  } catch {
+    return null;
+  }
 }
