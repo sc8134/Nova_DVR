@@ -110,7 +110,7 @@ export default function HeroSection({ onUseInApp }: { onUseInApp: (url: string) 
             Try it live — paste any video URL
           </p>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               ref={inputRef}
               type="url"
@@ -123,7 +123,7 @@ export default function HeroSection({ onUseInApp }: { onUseInApp: (url: string) 
             <button
               onClick={() => runDemo(demoUrl)}
               disabled={loading}
-              className="shrink-0 bg-blue-500 hover:bg-blue-600 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2"
+              className="sm:shrink-0 bg-blue-500 hover:bg-blue-600 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-2"
             >
               {loading ? (
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -182,7 +182,7 @@ export default function HeroSection({ onUseInApp }: { onUseInApp: (url: string) 
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 pt-1">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1">
                 <div className="flex items-center gap-1.5 text-green-400 text-xs font-semibold">
                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
@@ -191,7 +191,7 @@ export default function HeroSection({ onUseInApp }: { onUseInApp: (url: string) 
                 </div>
                 <button
                   onClick={() => onUseInApp(demoUrl)}
-                  className="ml-auto bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                  className="sm:ml-auto bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition flex items-center gap-1.5 w-full sm:w-auto justify-center"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />

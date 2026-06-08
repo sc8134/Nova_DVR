@@ -492,7 +492,7 @@ export default function BatchPage() {
           {/* Items */}
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {items.map((item) => (
-              <div key={item.id} className="px-6 py-4 flex items-start gap-3">
+              <div key={item.id} className="px-4 py-4 flex flex-wrap sm:flex-nowrap items-start gap-3">
                 {/* Checkbox */}
                 <input type="checkbox" checked={item.checked}
                   onChange={(e) => update(item.id, { checked: e.target.checked })}

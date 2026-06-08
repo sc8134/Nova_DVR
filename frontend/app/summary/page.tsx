@@ -560,7 +560,7 @@ export default function SummaryPage() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
+      <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 w-full sm:w-fit">
         {([
           { key: "history", label: "📥 Download History" },
           { key: "monitor", label: `🔖 Saved Searches${savedCount > 0 ? ` (${savedCount})` : ""}` },
@@ -585,7 +585,7 @@ export default function SummaryPage() {
         <>
           {/* Stats Bar */}
           {loaded && jobs.length > 0 && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { label: "Total Downloads", value: jobs.length },
                 { label: "Completed",       value: jobs.filter((j) => j.status === "Done").length },

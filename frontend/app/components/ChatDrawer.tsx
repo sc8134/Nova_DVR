@@ -572,7 +572,7 @@ export default function ChatDrawer() {
         </div>
 
         {/* Input Footer Panel */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex gap-2">
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex gap-2">
           <input
             type="text"
             placeholder={isListening ? "Listening..." : "Type instruction..."}

@@ -91,9 +91,9 @@ export default function TrustSection() {
       {/* Trust badges */}
       <div>
         <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">Why Nova DVR</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {BADGES.map((b) => (
-            <div key={b.label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${b.color}`}>
+            <div key={b.label} className={`flex items-center gap-3 px-3 py-3 rounded-xl border ${b.color}`}>
               <span className="shrink-0">{b.icon}</span>
               <div>
                 <p className="text-sm font-semibold leading-tight">{b.label}</p>

@@ -375,7 +375,7 @@ export default function SearchHubPage() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">SearchHub</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -395,7 +395,7 @@ export default function SearchHubPage() {
       </div>
 
       {/* Main Tabs */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
+      <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 w-full sm:w-fit">
         {(["search", "trending", "saved"] as const).map((tab) => {
           const labels: Record<string, string> = { search: "🔍 Search", trending: "🔥 Trending", saved: "🔖 Saved" };
           return (
