@@ -93,7 +93,7 @@ const TIERS = [
       "Custom SLA",
     ],
     highlight: false,
-    paid: false,
+    paid: true,
   },
 ];
 
@@ -126,7 +126,7 @@ function PricingPage() {
     setLoadingTier(tierId);
     try {
       const url = await createCheckoutSession({
-        tier: tierId as "starter" | "creator" | "pro",
+        tier: tierId as "starter" | "creator" | "pro" | "enterprise",
       });
       window.location.href = url;
     } catch (e: unknown) {
@@ -269,10 +269,6 @@ function PricingPage() {
                       Get Started
                     </Link>
                   )
-                ) : tier.id === "enterprise" ? (
-                  <a href="mailto:contact@sagarrc.com.np" className="block text-center text-sm font-semibold px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition">
-                    Contact Us
-                  </a>
                 ) : tier.paid ? (
                   <button
                     onClick={() => handleUpgrade(tier.id)}
@@ -282,6 +278,8 @@ function PricingPage() {
                         ? "bg-violet-600 hover:bg-violet-700 text-white"
                         : tier.id === "pro"
                         ? "bg-orange-500 hover:bg-orange-600 text-white"
+                        : tier.id === "enterprise"
+                        ? "bg-amber-500 hover:bg-amber-600 text-white"
                         : "bg-blue-600 hover:bg-blue-700 text-white"
                     }`}
                   >

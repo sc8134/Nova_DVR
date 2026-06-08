@@ -2,7 +2,7 @@ import { BACKEND } from "./config";
 import { getToken } from "./auth";
 
 export interface CheckoutOptions {
-  tier: "starter" | "creator" | "pro";
+  tier: "starter" | "creator" | "pro" | "enterprise";
   successUrl?: string;
   cancelUrl?: string;
 }
