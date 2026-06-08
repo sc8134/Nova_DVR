@@ -6,6 +6,8 @@ import Image from "next/image";
 import SupportedSites from "./components/SupportedSites";
 import DownloadLocationModal from "./components/DownloadLocationModal";
 import TrimSlider from "./components/TrimSlider";
+import HeroSection from "./components/HeroSection";
+import TrustSection from "./components/TrustSection";
 
 interface VideoMeta {
   title: string;
@@ -74,11 +76,11 @@ function formatDate(d: string | null) {
 import { BACKEND } from "./lib/config";
 import { safeJson } from "./lib/safeJson";
 
-function DownloaderInner() {
+function DownloaderInner({ initialUrl }: { initialUrl?: string }) {
   const searchParams = useSearchParams();
   const urlInputRef = useRef<HTMLInputElement>(null);
 
-  const [url, setUrl]                   = useState("");
+  const [url, setUrl] = useState(initialUrl || "");
   const [inspecting, setInspecting]     = useState(false);
   const [meta, setMeta]                 = useState<VideoMeta | null>(null);
   const [formats, setFormats]           = useState<Format[]>([]);
@@ -109,16 +111,15 @@ function DownloaderInner() {
   const [downloadEta, setDownloadEta]         = useState("");
   const [downloadStatusText, setDownloadStatusText] = useState("");
 
-  // ── Auto-inspect when navigated from SearchHub ──────────────
+  // ── Auto-inspect when navigated from SearchHub or Hero ──────────────
   useEffect(() => {
-    const fromSearch = searchParams.get("url");
+    const fromSearch = searchParams.get("url") || initialUrl;
     if (fromSearch) {
       setUrl(fromSearch);
-      // slight delay so state is set before the async call reads it
       setTimeout(() => runInspect(fromSearch), 50);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialUrl]);
 
   // ── Step 1: Inspect URL ──────────────────────────────────────
   const runInspect = async (targetUrl: string) => {
@@ -383,7 +384,7 @@ function DownloaderInner() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Downloader</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Paste a URL, inspect it, choose a format, and download.
+          Paste a URL, pick a format, and download.
         </p>
       </div>
 
@@ -831,8 +832,33 @@ function DownloaderInner() {
 // useSearchParams requires a Suspense boundary in Next.js App Router
 export default function DownloaderPage() {
   return (
-    <Suspense fallback={null}>
-      <DownloaderInner />
-    </Suspense>
+    <div>
+      <Suspense fallback={null}>
+        <DownloaderPageInner />
+      </Suspense>
+    </div>
+  );
+}
+
+function DownloaderPageInner() {
+  const [heroUrl, setHeroUrl] = useState<string>("");
+  const downloaderRef = useRef<HTMLDivElement>(null);
+
+  const handleHeroUse = (url: string) => {
+    setHeroUrl(url);
+    setTimeout(() => {
+      downloaderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  return (
+    <>
+      <HeroSection onUseInApp={handleHeroUse} />
+      <TrustSection />
+      <div ref={downloaderRef} className="border-t border-slate-200 dark:border-slate-700" />
+      <Suspense fallback={null}>
+        <DownloaderInner initialUrl={heroUrl} />
+      </Suspense>
+    </>
   );
 }
