@@ -456,9 +456,9 @@ export default function ChatDrawer() {
       {/* Floating Widget Bubble */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-full shadow-lg shadow-violet-500/20 transition-all hover:scale-110 active:scale-95"
+        className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 rounded-full shadow-lg shadow-violet-500/20 transition-all hover:scale-110 active:scale-95 overflow-hidden"
       >
-        <span className="text-2xl">🤖</span>
+        <Image src="/chatbot logo.png" alt="Nova AI" width={56} height={56} className="object-cover w-full h-full" />
       </button>
 
       {/* Drawer Overlay */}
@@ -478,7 +478,9 @@ export default function ChatDrawer() {
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-850">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🤖</span>
+            <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0">
+              <Image src="/chatbot logo.png" alt="Nova AI" fill className="object-cover" />
+            </div>
             <div>
               <h2 className="text-sm font-bold text-slate-800 dark:text-white">Nova AI Assistant</h2>
               <span className="text-[10px] text-green-500 flex items-center gap-1 font-semibold">
