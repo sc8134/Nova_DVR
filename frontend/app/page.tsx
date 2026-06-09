@@ -870,7 +870,7 @@ function DownloaderPageInner() {
     <>
       <HeroSection onUseInApp={handleHeroUse} />
       <TrustSection />
-      <div ref={downloaderRef} className="border-t border-slate-200 dark:border-slate-700" />
+      <div ref={downloaderRef} id="downloader" className="border-t border-slate-200 dark:border-slate-700" />
       <Suspense fallback={null}>
         <DownloaderInner initialUrl={heroUrl} />
       </Suspense>
