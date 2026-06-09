@@ -6,6 +6,7 @@ import ChatDrawer from "./components/ChatDrawer";
 import AppShell from "./components/AppShell";
 import SplashScreen from "./components/SplashScreen";
 import { AuthProvider } from "./context/AuthContext";
+import OnboardingModal from "./components/OnboardingModal";
 
 export const metadata: Metadata = {
   title: "Nova DVR",
@@ -38,6 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
           {/* Splash screen — shown once per browser session */}
           <SplashScreen />
+          {/* Onboarding tour — shown once for new users */}
+          <OnboardingModal />
           {/* AppShell: activates background hooks (saved search monitor, etc.) */}
           <AppShell />
           <Sidebar />
