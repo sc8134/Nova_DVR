@@ -67,18 +67,18 @@ export default function OnboardingModal() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Show only once — check localStorage flag
+    // Show only once — check localStorage flag with safe wrapper
     if (typeof window === "undefined") return;
-    const seen = localStorage.getItem("novaDvrOnboardingSeen");
+    let seen = false;
+    try { seen = !!localStorage.getItem("novaDvrOnboardingSeen"); } catch { seen = true; }
     if (!seen) {
-      // Small delay so splash screen finishes first
       const t = setTimeout(() => setVisible(true), 2200);
       return () => clearTimeout(t);
     }
   }, []);
 
   const dismiss = () => {
-    localStorage.setItem("novaDvrOnboardingSeen", "1");
+    try { localStorage.setItem("novaDvrOnboardingSeen", "1"); } catch { /* ignore */ }
     setVisible(false);
   };
 
@@ -98,7 +98,8 @@ export default function OnboardingModal() {
   const isLast = step === STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center px-4 bg-black/60"
+      style={{ WebkitOverflowScrolling: "touch" }}>
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden">
 
         {/* Progress bar */}
