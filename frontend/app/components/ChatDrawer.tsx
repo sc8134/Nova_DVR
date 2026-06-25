@@ -241,12 +241,16 @@ export default function ChatDrawer() {
   return (
     <>
       {/* ── FAB Button ── */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
-        {/* Tooltip label — always visible when closed */}
+      {/* bottom-24 on mobile keeps it above browser nav chrome; md:bottom-8 on desktop */}
+      <div className="fixed bottom-24 md:bottom-8 right-4 md:right-6 z-50 flex flex-col items-end gap-2">
+
+        {/* Persistent label pill — visible when closed */}
         {!isOpen && (
-          <div className="animate-fade-in flex items-center gap-2 bg-slate-900 dark:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg border border-white/10 whitespace-nowrap">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shrink-0" />
-            Nova AI — Ask me anything
+          <div className="animate-fade-in flex items-center gap-2 bg-gradient-to-r from-slate-900 to-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-full shadow-xl border border-white/15 whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+            <span>Nova AI</span>
+            <span className="opacity-50">·</span>
+            <span className="text-blue-300">NLP Powered</span>
           </div>
         )}
 
@@ -262,8 +266,10 @@ export default function ChatDrawer() {
             "shadow-violet-500/40",
           ].join(" ")}
         >
-          {/* Glow pulse ring */}
-          <span className="absolute inset-0 rounded-2xl bg-violet-500/30 animate-ping opacity-40 pointer-events-none" />
+          {/* Glow pulse ring — only when closed */}
+          {!isOpen && (
+            <span className="absolute inset-0 rounded-2xl bg-violet-500/30 animate-ping opacity-40 pointer-events-none" />
+          )}
 
           <div className="relative w-10 h-10 rounded-xl overflow-hidden">
             <Image src="/chatbot logo.png" alt="Nova AI" fill className="object-cover" priority />
@@ -271,7 +277,7 @@ export default function ChatDrawer() {
 
           {/* Unread badge */}
           {hasUnread && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-md">
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-md border-2 border-white">
               1
             </span>
           )}
@@ -293,7 +299,9 @@ export default function ChatDrawer() {
         aria-modal="true"
         aria-label="Nova AI Assistant"
         className={[
-          "fixed top-0 right-0 h-screen w-full sm:w-[420px] z-50 flex flex-col",
+          /* full screen on mobile, side panel on sm+ */
+          "fixed z-50 flex flex-col",
+          "inset-0 sm:inset-auto sm:top-0 sm:right-0 sm:h-screen sm:w-[420px]",
           "bg-white dark:bg-slate-900",
           "border-l border-slate-200 dark:border-slate-800",
           "shadow-2xl transition-transform duration-300 ease-out",
@@ -334,13 +342,19 @@ export default function ChatDrawer() {
           {/* Capabilities strip */}
           <div className="flex gap-2 mt-3 overflow-x-auto pb-0.5 scrollbar-none">
             {[
+              { icon: "🤖", label: "NLP Driven", highlight: true },
               { icon: "🔍", label: "Search" },
               { icon: "⬇️", label: "Download" },
               { icon: "🎵", label: "MP3" },
               { icon: "🎤", label: "Voice" },
               { icon: "📋", label: "History" },
             ].map(c => (
-              <span key={c.label} className="shrink-0 flex items-center gap-1 bg-white/10 border border-white/15 text-white/80 text-[10px] font-semibold px-2.5 py-1 rounded-full">
+              <span key={c.label} className={[
+                "shrink-0 flex items-center gap-1 border text-[10px] font-semibold px-2.5 py-1 rounded-full",
+                c.highlight
+                  ? "bg-violet-500/30 border-violet-400/50 text-violet-200"
+                  : "bg-white/10 border-white/15 text-white/80",
+              ].join(" ")}>
                 <span>{c.icon}</span>{c.label}
               </span>
             ))}
@@ -390,25 +404,45 @@ export default function ChatDrawer() {
                 {/* Search results */}
                 {msg.results && msg.results.length > 0 && (
                   <div className="mt-3 space-y-2 border-t border-slate-200 dark:border-slate-700 pt-3">
-                    <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{msg.results.length} result{msg.results.length !== 1 ? "s" : ""} found</p>
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        {msg.results.length} result{msg.results.length !== 1 ? "s" : ""} found
+                      </p>
+                      <span className="text-[9px] text-violet-500 dark:text-violet-400 font-semibold bg-violet-50 dark:bg-violet-900/30 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-800">
+                        🤖 NLP
+                      </span>
+                    </div>
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
                       {msg.results.map((r, idx) => (
-                        <div key={`${r.id}-${idx}`} className="flex gap-2.5 items-center p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition">
-                          {r.thumbnail && (
-                            <div className="w-12 h-8 rounded-lg overflow-hidden shrink-0 bg-slate-200 dark:bg-slate-700">
-                              <img src={r.thumbnail} alt="" className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 leading-snug">{r.title}</p>
-                            <p className="text-[9px] text-slate-400 mt-0.5 truncate">{r.uploader}</p>
+                        <div key={`${r.id}-${idx}`}
+                          className="flex gap-3 items-center p-3 bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition group shadow-sm hover:shadow-md">
+                          {/* Thumbnail */}
+                          <div className="w-14 h-10 rounded-lg overflow-hidden shrink-0 bg-slate-200 dark:bg-slate-700">
+                            {r.thumbnail
+                              ? <img src={r.thumbnail} alt="" className="w-full h-full object-cover" />
+                              : <div className="w-full h-full flex items-center justify-center text-lg">🎬</div>
+                            }
                           </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-1 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                              {r.title}
+                            </p>
+                            <p className="text-[9px] text-slate-400 mt-0.5 truncate">{r.uploader}</p>
+                            <span className="text-[8px] font-semibold uppercase bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                              {r.platform}
+                            </span>
+                          </div>
+                          {/* Download CTA */}
                           <button
                             onClick={() => runDownloadWorkflow(r.url, r.platform, null)}
                             disabled={activeWorkflow}
-                            className="shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[9px] font-bold px-2.5 py-1.5 rounded-lg transition"
+                            className="shrink-0 flex flex-col items-center gap-0.5 bg-gradient-to-br from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 disabled:opacity-50 text-white px-3 py-2 rounded-xl transition shadow-sm hover:shadow-md active:scale-95"
                           >
-                            ⬇️ DL
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                            </svg>
+                            <span className="text-[8px] font-bold">DL</span>
                           </button>
                         </div>
                       ))}
