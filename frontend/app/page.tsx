@@ -388,7 +388,7 @@ function DownloaderInner({ initialUrl }: { initialUrl?: string }) {
   const audioFormats = formats.filter((f) => f.type === "audio-only");
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6" suppressHydrationWarning>
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 animate-fade-in-up" suppressHydrationWarning>
 
       {/* ── Header ── */}
       <div>

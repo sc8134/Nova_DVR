@@ -6,6 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "../context/AuthContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 
 export default function RegisterPage() {
   const { register, refreshUser } = useAuth();
@@ -40,8 +42,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-slate-50 dark:bg-slate-900">
-      <div className="w-full max-w-md space-y-6">
-        {/* Logo */}
+      <div className="w-full max-w-md space-y-6 animate-fade-in-up">
         <div className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-slate-900 ring-2 ring-white/10 shadow-xl">
@@ -56,17 +57,9 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+          <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={(msg) => setError(msg)} label="Sign up with Google" />
 
-          {/* Google button */}
-          <GoogleSignInButton
-            onSuccess={handleGoogleSuccess}
-            onError={(msg) => setError(msg)}
-            label="Sign up with Google"
-          />
-
-          {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 border-t border-slate-200 dark:border-slate-700" />
             <span className="text-xs text-slate-400">or register with email</span>
@@ -74,74 +67,45 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Email</label>
-              <input
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-700 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Password</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 6 characters"
-                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-700 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Confirm Password</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Repeat password"
-                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-700 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                Referral Code <span className="font-normal text-slate-400">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={referral}
-                onChange={(e) => setReferral(e.target.value.toUpperCase())}
-                placeholder="e.g. ABC12345"
-                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-700 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition font-mono"
-              />
-              <p className="text-[10px] text-slate-400">Earn +3 bonus tokens when you use a friend&apos;s code</p>
-            </div>
+            <Input
+              label="Email" type="email" autoComplete="email" required
+              value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+            />
+            <Input
+              label="Password" type="password" autoComplete="new-password" required
+              value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min. 6 characters"
+            />
+            <Input
+              label="Confirm Password" type="password" autoComplete="new-password" required
+              value={confirm} onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repeat password"
+              errorText={error?.includes("match") ? error : undefined}
+            />
+            <Input
+              label="Referral Code" type="text"
+              value={referral} onChange={(e) => setReferral(e.target.value.toUpperCase())}
+              placeholder="e.g. ABC12345 (optional)"
+              helperText="Earn +3 bonus tokens when you use a friend's code"
+              className="font-mono"
+            />
 
-            {error && (
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm">
-                <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            {error && !error.includes("match") && (
+              <div
+                className="flex items-center gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm"
+                role="alert"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
                 </svg>
                 {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-xl transition flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Creating account…</>
-              ) : "Create Free Account"}
-            </button>
+            <Button type="submit" loading={loading} fullWidth size="lg">
+              Create Free Account
+            </Button>
           </form>
 
           <div className="text-center text-sm text-slate-500 dark:text-slate-400">

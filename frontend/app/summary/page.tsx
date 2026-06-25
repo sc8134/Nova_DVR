@@ -7,8 +7,11 @@ import {
   setMonitorData,
   type MonitoredSearch,
 } from "../hooks/useSavedSearchesMonitor";
-
 import { BACKEND } from "../lib/config";
+import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
+import ProgressBar from "../components/ui/ProgressBar";
+import EmptyState from "../components/ui/EmptyState";
 
 interface DownloadJob {
   url: string;
@@ -122,17 +125,17 @@ function MonitorDashboard() {
 
   if (savedSearches.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-10 text-center space-y-3">
-        <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto text-xl">🔖</div>
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No saved searches yet</p>
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          Go to{" "}
-          <button onClick={() => router.push("/searchhub")} className="text-blue-500 hover:underline">
-            SearchHub
-          </button>
-          , search for something, and click <span className="font-semibold">🔖 Save Search</span>.
-        </p>
-      </div>
+      <EmptyState
+        icon={<span className="text-2xl">🔖</span>}
+        title="No saved searches yet"
+        description={
+          <span>
+            Go to{" "}
+            <button onClick={() => router.push("/searchhub")} className="text-blue-500 hover:underline">SearchHub</button>
+            {", search for something, and click 🔖 Save Search."}
+          </span>
+        }
+      />
     );
   }
 
@@ -143,9 +146,7 @@ function MonitorDashboard() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{savedSearches.length} saved</span>
           {totalNew > 0 && (
-            <span className="text-xs font-bold bg-violet-600 text-white px-2 py-0.5 rounded-full">
-              {totalNew} new
-            </span>
+            <Badge variant="info" dot>{totalNew} new</Badge>
           )}
         </div>
         {!notifEnabled && (
@@ -536,7 +537,7 @@ export default function SummaryPage() {
     : 0;
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 animate-fade-in-up">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -547,15 +548,14 @@ export default function SummaryPage() {
           </p>
         </div>
         {activeTab === "history" && jobs.length > 0 && (
-          <button
+          <Button
+            variant="danger"
+            size="sm"
             onClick={clearHistory}
-            className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 border border-red-200 dark:border-red-800 px-4 py-2 rounded-xl transition font-medium"
+            leftIcon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-            </svg>
             Clear History
-          </button>
+          </Button>
         )}
       </div>
 
@@ -601,19 +601,11 @@ export default function SummaryPage() {
 
           {/* Jobs List */}
           {!loaded ? null : jobs.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-12 text-center space-y-3">
-              <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto">
-                <svg className="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-                </svg>
-              </div>
-              <p className="font-semibold text-slate-700 dark:text-slate-200">No downloads yet</p>
-              <p className="text-sm text-slate-400 dark:text-slate-500">
-                Head to the{" "}
-                <a href="/" className="text-blue-600 hover:underline font-medium">Downloader</a>{" "}
-                to start your first download.
-              </p>
-            </div>
+            <EmptyState
+              icon={<svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>}
+              title="No downloads yet"
+              description="Your download history will appear here once you complete your first download."
+            />
           ) : (
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
               <div className="divide-y divide-slate-100 dark:divide-slate-700">

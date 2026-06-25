@@ -372,7 +372,7 @@ export default function SearchHubPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6 animate-fade-in-up">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">

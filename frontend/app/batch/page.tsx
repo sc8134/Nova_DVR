@@ -3,6 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 import SupportedSites from "../components/SupportedSites";
 import DownloadLocationModal from "../components/DownloadLocationModal";
+import Button from "../components/ui/Button";
+import Badge from "../components/ui/Badge";
+import ProgressBar from "../components/ui/ProgressBar";
+import EmptyState from "../components/ui/EmptyState";
+import { useToastHelpers } from "../components/ui/Toast";
 
 interface BatchItem {
   id: number;
@@ -93,6 +98,7 @@ export default function BatchPage() {
   const [smartPasteMode, setSmartPasteMode] = useState(false);
   const [smartPasteText, setSmartPasteText] = useState("");
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const toasts = useToastHelpers();
 
   // Load URLs sent from SearchHub "Send to Batch" button
   useEffect(() => {
@@ -217,7 +223,6 @@ export default function BatchPage() {
     setDoneCount(0);
     setTotalCount(readyItems.length);
 
-    // Mark all as queued
     readyItems.forEach((item) => update(item.id, { status: "downloading", percent: null, speed: "", eta: "" }));
 
     try {
@@ -226,12 +231,8 @@ export default function BatchPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobs: readyItems.map((item) => ({
-            id: item.id,
-            url: item.url,
-            format_id: item.format_id,
-            is_audio: item.is_audio,
-            is_4k: item.is_4k,
-            title: item.title,
+            id: item.id, url: item.url, format_id: item.format_id,
+            is_audio: item.is_audio, is_4k: item.is_4k, title: item.title,
           })),
           download_dir: downloadDir,
         }),
@@ -251,23 +252,21 @@ export default function BatchPage() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n\n");
         buffer = lines.pop() || "";
-
         for (const line of lines) {
           const cleanLine = line.trim();
           if (!cleanLine.startsWith("data: ")) continue;
           try {
             const data = JSON.parse(cleanLine.substring(6));
-
             if (data.type === "done") {
               const clientId = data.client_id;
               update(clientId, { status: "done", percent: 100, speed: "", eta: "" });
               setDoneCount((c) => c + 1);
               const item = readyItems.find((it) => it.id === clientId);
               fireNotification("Nova DVR — Done", item?.title || "Download complete");
+              toasts.success("Download complete", item?.title);
               if (data.filepath) {
                 const a = document.createElement("a");
                 a.href = `${BACKEND}/serve-file?path=${encodeURIComponent(data.filepath)}&temp=${data.is_temp ? "1" : "0"}`;
@@ -275,41 +274,24 @@ export default function BatchPage() {
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
               }
               const existing = JSON.parse(localStorage.getItem("novaDvrJobs") || "[]");
-              existing.unshift({
-                url: item?.url || data.url,
-                title: item?.title || data.url,
-                format: item?.format_id || "",
-                resolution: item?.resolution || "",
-                status: "Done",
-                timestamp: new Date().toLocaleString(),
-              });
+              existing.unshift({ url: item?.url || data.url, title: item?.title || data.url, format: item?.format_id || "", resolution: item?.resolution || "", status: "Done", timestamp: new Date().toLocaleString() });
               localStorage.setItem("novaDvrJobs", JSON.stringify(existing));
             } else if (data.type === "error") {
               const clientId = data.client_id;
               update(clientId, { status: "error", error: data.error || "Failed" });
               setDoneCount((c) => c + 1);
+              toasts.error("Download failed", data.error);
             } else if (data.type === "complete") {
-              fireNotification(
-                "Nova DVR — Batch complete",
-                `${data.done} done · ${data.errors} error${data.errors !== 1 ? "s" : ""}`
-              );
+              fireNotification("Nova DVR — Batch complete", `${data.done} done · ${data.errors} error${data.errors !== 1 ? "s" : ""}`);
+              toasts.success("Batch complete", `${data.done} done · ${data.errors} failed`);
             }
-          } catch {
-            // malformed SSE line — skip
-          }
+          } catch { /* malformed SSE line */ }
         }
       }
     } catch (e: unknown) {
-      // Mark any still-downloading items as error
-      setItems((prev) =>
-        prev.map((it) =>
-          it.status === "downloading"
-            ? { ...it, status: "error", error: e instanceof Error ? e.message : "Batch failed" }
-            : it
-        )
-      );
+      setItems((prev) => prev.map((it) => it.status === "downloading" ? { ...it, status: "error", error: e instanceof Error ? e.message : "Batch failed" } : it));
+      toasts.error("Batch failed", e instanceof Error ? e.message : undefined);
     }
-
     setRunning(false);
   };
 
@@ -320,7 +302,7 @@ export default function BatchPage() {
     : 0;
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 animate-fade-in-up">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Batch Downloader</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -330,28 +312,22 @@ export default function BatchPage() {
 
       {/* ── Master Progress Bar ── */}
       {running && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 space-y-2">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 space-y-3">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {doneCount} / {totalCount} done
+            <span className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+              <svg className="w-4 h-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              {doneCount} / {totalCount} complete
               {downloadingItems.length > 0 && (
-                <span className="ml-2 text-xs font-normal text-blue-500">
-                  ⚡ {downloadingItems.length} downloading in parallel
-                </span>
+                <Badge variant="primary" size="sm" dot>{downloadingItems.length} active</Badge>
               )}
             </span>
             <span className="text-slate-400 dark:text-slate-500 text-xs">{progressPct}%</span>
           </div>
-          <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
-            <div
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+          <ProgressBar value={progressPct} color="primary" size="md" animated />
           {downloadingItems.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-0.5">
               {downloadingItems.map((it) => (
-                <span key={it.id} className="text-[10px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2 py-0.5 rounded-full truncate max-w-[180px]">
+                <span key={it.id} className="text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2 py-0.5 rounded-full truncate max-w-[180px]">
                   {it.title.length > 22 ? it.title.slice(0, 22) + "…" : it.title}
                   {it.percent != null && ` ${it.percent.toFixed(0)}%`}
                 </span>
@@ -512,20 +488,11 @@ export default function BatchPage() {
                   {/* Per-item progress bar when downloading */}
                   {item.status === "downloading" && (
                     <div className="space-y-1.5 w-full">
-                      <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${item.percent !== null && item.percent !== undefined ? item.percent : 10}%` }}
-                        />
-                      </div>
+                      <ProgressBar value={item.percent ?? 10} size="xs" color="primary" />
                       <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500">
-                        {item.percent !== null && item.percent !== undefined && (
-                          <span>{item.percent.toFixed(1)}%</span>
-                        )}
+                        {item.percent != null && <span>{item.percent.toFixed(1)}%</span>}
                         {(item.speed || item.eta) && (
-                          <span>
-                            {item.speed && `⚡ ${item.speed}`} {item.eta && ` ⏱️ ${item.eta}`}
-                          </span>
+                          <span>{item.speed && `⚡ ${item.speed}`} {item.eta && `⏱️ ${item.eta}`}</span>
                         )}
                       </div>
                     </div>
@@ -568,13 +535,11 @@ export default function BatchPage() {
       )}
 
       {items.length === 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-12 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-          </div>
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No URLs yet</p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">Add URLs above, paste a playlist, or use Smart Paste for bulk text</p>
-        </div>
+        <EmptyState
+          icon={<svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>}
+          title="No URLs yet"
+          description="Add URLs above, paste a playlist link, or use Smart Paste to import from any text."
+        />
       )}
 
       <SupportedSites onSiteClick={(domain) => { setNewUrl(`https://www.${domain}/`); setTimeout(() => urlInputRef.current?.focus(), 50); }} />

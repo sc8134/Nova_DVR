@@ -43,96 +43,26 @@ const BADGES = [
   },
 ];
 
-const TESTIMONIALS = [
-  {
-    name: "Alex M.",
-    role: "Video Creator",
-    avatar: "AM",
-    avatarColor: "bg-blue-500",
-    text: "Finally a downloader that actually works. Grabbed a full playlist in one click — saved me hours.",
-  },
-  {
-    name: "Priya S.",
-    role: "Content Researcher",
-    avatar: "PS",
-    avatarColor: "bg-violet-500",
-    text: "The MP3 export is clean and fast. I use Nova DVR every day for podcast research.",
-  },
-  {
-    name: "Jordan K.",
-    role: "Educator",
-    avatar: "JK",
-    avatarColor: "bg-orange-500",
-    text: "Subtitle support is a game changer. I can pull lecture videos with captions in one go.",
-  },
-];
-
-const STATS = [
-  { value: "1000+", label: "Supported Sites" },
-  { value: "4K", label: "Max Resolution" },
-  { value: "Free", label: "Forever" },
-  { value: "AI", label: "Smart Format Pick" },
-];
-
 export default function TrustSection() {
   return (
-    <section className="px-6 py-12 max-w-4xl mx-auto space-y-10">
-
-      {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {STATS.map((s) => (
-          <div key={s.label} className="text-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-5 px-3 shadow-sm">
-            <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{s.value}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{s.label}</p>
+    <section className="px-6 py-10 max-w-4xl mx-auto">
+      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">
+        Why Nova DVR
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {BADGES.map((b) => (
+          <div
+            key={b.label}
+            className={`flex items-center gap-3 px-3 py-3 rounded-xl border ${b.color}`}
+          >
+            <span className="shrink-0">{b.icon}</span>
+            <div>
+              <p className="text-sm font-semibold leading-tight">{b.label}</p>
+              <p className="text-xs opacity-70">{b.desc}</p>
+            </div>
           </div>
         ))}
       </div>
-
-      {/* Trust badges */}
-      <div>
-        <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">Why Nova DVR</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {BADGES.map((b) => (
-            <div key={b.label} className={`flex items-center gap-3 px-3 py-3 rounded-xl border ${b.color}`}>
-              <span className="shrink-0">{b.icon}</span>
-              <div>
-                <p className="text-sm font-semibold leading-tight">{b.label}</p>
-                <p className="text-xs opacity-70">{b.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Testimonials */}
-      <div>
-        <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">What people say</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {TESTIMONIALS.map((t) => (
-            <div key={t.name} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm space-y-3">
-              {/* Stars */}
-              <div className="flex gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">&ldquo;{t.text}&rdquo;</p>
-              <div className="flex items-center gap-2.5 pt-1">
-                <div className={`w-8 h-8 rounded-full ${t.avatarColor} text-white text-xs font-bold flex items-center justify-center shrink-0`}>
-                  {t.avatar}
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{t.name}</p>
-                  <p className="text-xs text-slate-400">{t.role}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
     </section>
   );
 }

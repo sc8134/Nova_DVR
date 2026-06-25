@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
 import { createCheckoutSession, openCustomerPortal } from "../lib/stripe";
+import { useToastHelpers } from "../components/ui/Toast";
+import Button from "../components/ui/Button";
+import Badge from "../components/ui/Badge";
 
 const TIERS = [
   {
@@ -103,19 +106,18 @@ function PricingPage() {
   const searchParams = useSearchParams();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const toasts = useToastHelpers();
 
   // Handle Stripe redirect back
   useEffect(() => {
     const success   = searchParams.get("success");
     const cancelled = searchParams.get("cancelled");
     if (success === "1") {
-      setToast({ msg: "Payment successful! Your plan has been upgraded.", type: "success" });
+      toasts.success("Payment successful!", "Your plan has been upgraded.");
       refreshUser();
-      // Clean URL
       router.replace("/pricing");
     } else if (cancelled === "1") {
-      setToast({ msg: "Payment cancelled — no charge was made.", type: "error" });
+      toasts.info("Payment cancelled", "No charge was made.");
       router.replace("/pricing");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,12 +127,10 @@ function PricingPage() {
     if (!user) { router.push("/login"); return; }
     setLoadingTier(tierId);
     try {
-      const url = await createCheckoutSession({
-        tier: tierId as "starter" | "creator" | "pro" | "enterprise",
-      });
+      const url = await createCheckoutSession({ tier: tierId as "starter" | "creator" | "pro" | "enterprise" });
       window.location.href = url;
     } catch (e: unknown) {
-      setToast({ msg: e instanceof Error ? e.message : "Checkout failed", type: "error" });
+      toasts.error("Checkout failed", e instanceof Error ? e.message : undefined);
       setLoadingTier(null);
     }
   };
@@ -141,25 +141,13 @@ function PricingPage() {
       const url = await openCustomerPortal();
       window.location.href = url;
     } catch (e: unknown) {
-      setToast({ msg: e instanceof Error ? e.message : "Could not open portal", type: "error" });
+      toasts.error("Could not open portal", e instanceof Error ? e.message : undefined);
       setPortalLoading(false);
     }
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-10">
-
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-lg text-sm font-semibold transition-all ${
-          toast.type === "success"
-            ? "bg-green-600 text-white"
-            : "bg-red-600 text-white"
-        }`}>
-          {toast.type === "success" ? "✅" : "❌"} {toast.msg}
-          <button onClick={() => setToast(null)} className="ml-2 opacity-70 hover:opacity-100">✕</button>
-        </div>
-      )}
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-10 animate-fade-in-up">
 
       {/* Header */}
       <div className="text-center space-y-3">
@@ -308,7 +296,7 @@ function PricingPage() {
               {user.referral_code}
             </code>
             <button
-              onClick={() => { navigator.clipboard.writeText(user.referral_code!); setToast({ msg: "Referral code copied!", type: "success" }); }}
+              onClick={() => { navigator.clipboard.writeText(user.referral_code!); toasts.success("Referral code copied!"); }}
               className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition"
             >
               Copy
